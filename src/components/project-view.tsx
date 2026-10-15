@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Project } from "@/db/schema";
 import { findProject, hasImportedHistory, history, latestFullReport, loadReport } from "@/db/store";
-import { projectJsonLd, projectSeoInput } from "@/lib/seo";
+import { breadcrumbJsonLd, projectCanonicalPath, projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
 import { config } from "@/lib/config";
 import { slugify } from "@/lib/games";
@@ -303,6 +303,17 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
   return (
     <div className="report-page grid grid-cols-[minmax(0,1fr)] gap-5">
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          ...(gameSlug && project.game
+            ? [
+                { name: "Games", path: "/games" },
+                { name: project.game, path: `/games/${gameSlug}` },
+              ]
+            : []),
+          { name: project.name, path: projectCanonicalPath(projectSeoInput(r, { versionInUrl: !!version })) },
+        ])}
+      />
 
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
         {gameSlug ? (

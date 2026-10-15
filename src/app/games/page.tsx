@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { GameCard } from "@/components/game-card";
 import { loadGames } from "@/lib/game-data";
-import { browseMetadata } from "@/lib/seo";
+import { browseMetadata, gameListJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function Games() {
   const { games, franchises, unassigned } = await loadGames();
   return (
     <div>
+      <JsonLd data={gameListJsonLd({ name: "Games with matching decompilations", path: "/games", games })} />
       <div className="mb-8 max-w-2xl">
         <h1 className="text-3xl font-semibold tracking-tight">Games</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">

@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
 import { ChevronRight } from "@/components/ui/icons";
 import { loadGames } from "@/lib/game-data";
-import { browseMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, browseMetadata, gameListJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,13 @@ export default async function FranchisePage({ params }: Params) {
   const projects = f.games.reduce((n, g) => n + g.projects.length, 0);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <JsonLd data={gameListJsonLd({ name: `${f.title} decompilations`, path: `/franchises/${f.slug}`, games: f.games })} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Games", path: "/games" },
+          { name: f.title, path: `/franchises/${f.slug}` },
+        ])}
+      />
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
         <Link href="/games" className="text-ink-3 hover:text-ink">
           Games

@@ -9,7 +9,8 @@ import { ChevronRight } from "@/components/ui/icons";
 import { history } from "@/db/store";
 import { byProgress, gameArt, loadGames } from "@/lib/game-data";
 import { platformName } from "@/lib/platforms";
-import { browseMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, browseMetadata, gameJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,14 @@ export default async function GamePage({ params }: Params) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <JsonLd data={gameJsonLd(game)} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Games", path: "/games" },
+          ...(game.franchise && game.franchiseSlug ? [{ name: game.franchise, path: `/franchises/${game.franchiseSlug}` }] : []),
+          { name: game.title, path: `/games/${game.slug}` },
+        ])}
+      />
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
         <Link href="/games" className="text-ink-3 hover:text-ink">
           Games

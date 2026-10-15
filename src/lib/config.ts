@@ -16,6 +16,10 @@ const schema = z.object({
   SITE_NAME: z.string().default("ByteMatch"),
   /** The community Discord linked in the header and footer; empty hides the link. */
   SITE_DISCORD_URL: z.string().default("https://discord.gg/qqe7ZqCsMT"),
+  /** Search engine ownership checks, rendered as meta tags: the content values Search Console and
+   *  Bing Webmaster Tools give for their "HTML tag" method. Not needed if the domain is verified by DNS. */
+  GOOGLE_SITE_VERIFICATION: z.string().trim().optional(),
+  BING_SITE_VERIFICATION: z.string().trim().optional(),
 
   /** A GitHub token for reading public repositories' artifacts when the App is not installed on them. */
   GITHUB_TOKEN: z.string().optional(),

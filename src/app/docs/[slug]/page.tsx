@@ -5,7 +5,7 @@ import { Markdown } from "@/components/markdown";
 import { ArrowRight } from "@/components/ui/icons";
 import { JsonLd } from "@/components/json-ld";
 import { DOCS, loadDoc } from "@/lib/docs";
-import { docsJsonLd, docsPageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, docsJsonLd, docsPageMetadata } from "@/lib/seo";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -29,6 +29,12 @@ export default async function DocPage({ params }: Params) {
     <div className="grid grid-cols-[minmax(0,1fr)]">
       <article className="panel min-w-0 px-6 py-8 sm:px-10 lg:px-12">
         <JsonLd data={docsJsonLd(doc.slug, { title: doc.title, description: doc.summary })} />
+        <JsonLd
+          data={breadcrumbJsonLd([
+            { name: "Docs", path: "/docs" },
+            { name: doc.title, path: `/docs/${doc.slug}` },
+          ])}
+        />
         <div className="text-xs font-medium text-ink-3">{doc.group}</div>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance">{doc.title}</h1>
         <div className="mt-6">

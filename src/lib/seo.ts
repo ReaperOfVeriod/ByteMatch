@@ -50,13 +50,34 @@ export const absoluteUrl = (path = "/") => `${config().PUBLIC_URL}${path.startsW
 /** "bytematch.dev", for printing on images. */
 export const siteHost = () => new URL(config().PUBLIC_URL).host;
 
-/** Open Graph fields every page repeats (child `openGraph` replaces the layout's whole object). */
-function openGraph(o: { title: string; description: string; path: string; type?: "website" | "article" }): Metadata["openGraph"] {
-  return { type: o.type ?? "website", siteName: siteName(), locale: "en_US", title: o.title, description: o.description, url: o.path };
+/** The site's social card (src/app/opengraph-image.tsx); projects have their own. */
+const SITE_IMAGE = "/opengraph-image";
+const imageFor = (path: string) => [{ url: path, width: 1200, height: 630 }];
+
+/**
+ * Open Graph fields every page repeats. A child `openGraph` replaces the layout's whole object,
+ * file-based image included, so each page names its image explicitly.
+ */
+function openGraph(o: {
+  title: string;
+  description: string;
+  path: string;
+  type?: "website" | "article";
+  image?: string;
+}): Metadata["openGraph"] {
+  return {
+    type: o.type ?? "website",
+    siteName: siteName(),
+    locale: "en_US",
+    title: o.title,
+    description: o.description,
+    url: o.path,
+    images: imageFor(o.image ?? SITE_IMAGE),
+  };
 }
 
-function twitter(o: { title: string; description: string }): Metadata["twitter"] {
-  return { card: "summary_large_image", title: o.title, description: o.description };
+function twitter(o: { title: string; description: string; image?: string }): Metadata["twitter"] {
+  return { card: "summary_large_image", title: o.title, description: o.description, images: [o.image ?? SITE_IMAGE] };
 }
 
 const INDEXABLE: Metadata["robots"] = {
@@ -87,6 +108,14 @@ export function siteMetadata(): Metadata {
     openGraph: { type: "website", siteName: name, locale: "en_US", title, description: SITE_DESCRIPTION },
     twitter: twitter({ title, description: SITE_DESCRIPTION }),
     formatDetection: { telephone: false, email: false, address: false },
+    ...(c.GOOGLE_SITE_VERIFICATION || c.BING_SITE_VERIFICATION
+      ? {
+          verification: {
+            ...(c.GOOGLE_SITE_VERIFICATION ? { google: c.GOOGLE_SITE_VERIFICATION } : {}),
+            ...(c.BING_SITE_VERIFICATION ? { other: { "msvalidate.01": c.BING_SITE_VERIFICATION } } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -180,8 +209,14 @@ export function projectMetadata(p: ProjectSeoInput): Metadata {
       "objdiff",
     ],
     alternates: { canonical },
-    openGraph: openGraph({ title, description, path: canonical }),
-    twitter: twitter({ title, description }),
+    // Every version shares the project's card (src/app/[owner]/[repo]/opengraph-image.tsx).
+    openGraph: openGraph({
+      title,
+      description,
+      path: canonical,
+      image: `${projectPath({ owner: p.owner, repo: p.repo })}/opengraph-image`,
+    }),
+    twitter: twitter({ title, description, image: `${projectPath({ owner: p.owner, repo: p.repo })}/opengraph-image` }),
   };
 }
 
@@ -275,6 +310,11 @@ export const DOCS_SEO: Record<string, { title: string; absoluteTitle?: boolean; 
     description:
       "Development setup, tests, code style and the commit standard for contributing to ByteMatch, the open-source decompilation progress tracker.",
   },
+  theming: {
+    title: "Theming: colours, layouts and shared themes",
+    description:
+      "How ByteMatch's themes work: thirteen palette slots, derived colours, the Classic and Directory layouts, and sharing custom themes by code.",
+  },
   architecture: {
     title: "Architecture",
     description:
@@ -334,7 +374,13 @@ export function browseMetadata(title: string, description: string, path: string)
 export function loginMetadata(): Metadata {
   const title = "Sign in";
   const description = `Sign in to ${siteName()} with GitHub to register and manage decompilation projects.`;
-  return { title, description, alternates: { canonical: "/login" }, openGraph: openGraph({ title, description, path: "/login" }) };
+  return {
+    title,
+    description,
+    alternates: { canonical: "/login" },
+    openGraph: openGraph({ title, description, path: "/login" }),
+    twitter: twitter({ title, description }),
+  };
 }
 
 /** For private pages (/manage/*): never indexed, links not followed, nothing cached. */
@@ -404,6 +450,8 @@ export function projectJsonLd(p: ProjectSeoInput): JsonLdObject {
     description: `${projectDescription(p)} Measures come from the project's objdiff reports and are updated on every CI run.`,
     url: canonical,
     isBasedOn: `https://github.com/${p.owner}/${p.repo}`,
+    // The repository's owner on GitHub: an organisation or a person, so the neutral type.
+    creator: { "@type": "Organization", name: p.owner, url: `https://github.com/${p.owner}` },
     isAccessibleForFree: true,
     keywords: ["decompilation", "matching decompilation", "objdiff", p.name, ...(platform ? [platform] : [])],
     ...(updated ? { dateModified: updated } : {}),
@@ -448,5 +496,72 @@ export function docsJsonLd(
     isPartOf: { "@type": "WebSite", "@id": siteId(), name: siteName(), url: absoluteUrl("/") },
     author: { "@type": "Organization", name: "ByteMatch contributors", url: REPO_URL },
     publisher: { "@type": "Organization", name: siteName(), url: absoluteUrl("/") },
+  };
+}
+
+/** A breadcrumb trail (Home first), for Google's breadcrumb rich result. Paths are site-relative. */
+export function breadcrumbJsonLd(items: { name: string; path: string }[]): JsonLdObject {
+  const trail = [{ name: siteName(), path: "/" }, ...items];
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map((t, i) => ({ "@type": "ListItem", position: i + 1, name: t.name, item: absoluteUrl(t.path) })),
+  };
+}
+
+interface GameSeo {
+  slug: string;
+  title: string;
+  year: number | null;
+  platforms: string[];
+  projects: { owner: string; repo: string; name: string }[];
+}
+
+/** For /games/{slug}: the game, and the projects decompiling it (each a Dataset on its own page). */
+export function gameJsonLd(g: GameSeo): JsonLdObject {
+  const url = absoluteUrl(`/games/${g.slug}`);
+  const platforms = g.platforms.map((p) => platformName(p) ?? p);
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${url}#page`,
+    name: `${g.title} decompilation progress`,
+    url,
+    isPartOf: { "@id": siteId() },
+    about: {
+      "@type": "VideoGame",
+      name: g.title,
+      ...(platforms.length ? { gamePlatform: platforms } : {}),
+      ...(g.year ? { datePublished: String(g.year) } : {}),
+    },
+    hasPart: g.projects.map((p) => ({
+      "@type": "Dataset",
+      "@id": `${absoluteUrl(projectPath(p))}#dataset`,
+      name: `${p.name} decompilation progress`,
+      url: absoluteUrl(projectPath(p)),
+    })),
+  };
+}
+
+/** For /games and /franchises/{slug}: a list of game pages. */
+export function gameListJsonLd(o: { name: string; path: string; games: { slug: string; title: string }[] }): JsonLdObject {
+  const url = absoluteUrl(o.path);
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${url}#page`,
+    name: o.name,
+    url,
+    isPartOf: { "@id": siteId() },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: o.games.length,
+      itemListElement: o.games.map((g, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: g.title,
+        url: absoluteUrl(`/games/${g.slug}`),
+      })),
+    },
   };
 }
