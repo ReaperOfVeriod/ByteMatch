@@ -14,6 +14,8 @@ const schema = z.object({
     .transform((u) => u.replace(/\/+$/, "")),
   /** Shown in the page header and titles. */
   SITE_NAME: z.string().default("ByteMatch"),
+  /** The community Discord linked in the header and footer; empty hides the link. */
+  SITE_DISCORD_URL: z.string().default("https://discord.gg/qqe7ZqCsMT"),
 
   /** A GitHub token for reading public repositories' artifacts when the App is not installed on them. */
   GITHUB_TOKEN: z.string().optional(),

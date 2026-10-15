@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentSession } from "@/auth/session";
 import { JsonLd } from "@/components/json-ld";
+import { Chat } from "@/components/ui/icons";
 import { siteJsonLd, siteMetadata } from "@/lib/seo";
 import { config } from "@/lib/config";
 import "./globals.css";
@@ -29,6 +30,7 @@ function Mark() {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await currentSession().catch(() => null);
   const name = config().SITE_NAME;
+  const discord = config().SITE_DISCORD_URL.trim();
   const navLink = "rounded-lg px-3 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink";
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} style={{ colorScheme: "dark" }}>
@@ -47,6 +49,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               Docs
             </Link>
             <div className="ml-auto flex items-center gap-1">
+              {discord ? (
+                <a
+                  href={discord}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${navLink} flex items-center gap-1.5`}
+                  aria-label={`${name} Discord`}
+                >
+                  <Chat size={15} />
+                  <span className="hidden md:inline">Discord</span>
+                </a>
+              ) : null}
               {session ? (
                 <>
                   <Link href="/manage" className={navLink}>
@@ -92,6 +106,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href="/docs/migrating-from-decomp-dev" className="hover:text-ink">
               Coming from decomp.dev?
             </Link>
+            {discord ? (
+              <a href={discord} target="_blank" rel="noopener noreferrer" className="hover:text-ink">
+                Discord
+              </a>
+            ) : null}
             <a href="https://github.com/Veradictus/ByteMatch" className="hover:text-ink sm:ml-auto">
               Source (GPL-3.0)
             </a>
