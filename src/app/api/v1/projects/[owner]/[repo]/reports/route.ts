@@ -1,7 +1,9 @@
 import { gunzipSync } from "node:zlib";
 import type { NextRequest } from "next/server";
-import { findProject, storeReport } from "@/db/store";
-import { versionsOf } from "@/ingest/github";
+import { findProject, storeReport, type StoreInput } from "@/db/store";
+import { readArtifact } from "@/github/artifacts";
+import { readFunctional, versionsOf } from "@/ingest/github";
+import { ReportProblem } from "@/lib/problems";
 import { config } from "@/lib/config";
 import { projectUrl } from "@/lib/project-data";
 import { checkToken } from "@/lib/tokens";
@@ -14,6 +16,7 @@ const fail = (status: number, error: string) => Response.json({ error }, { statu
 /**
  * Upload API: POST the raw objdiff report (JSON or protobuf, optionally gzip-encoded) with
  * `Authorization: Bearer bm_...` and ?version=...&commit=<sha>[&commit_message=...][&commit_timestamp=ISO].
+ * Or POST a zip laid out like a CI artifact: the report, and optionally functional.json/.tsv.
  */
 export async function POST(request: NextRequest, ctx: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = await ctx.params;
@@ -45,10 +48,18 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ owner:
   if (body.length > limit) return fail(413, `report is larger than ${limit} bytes`);
 
   let report;
+  let functional: StoreInput["functional"] = null;
   try {
-    report = parseReport(body);
+    if (body[0] === 0x50 && body[1] === 0x4b) {
+      // A zip, like a CI artifact.
+      const files = readArtifact(body);
+      report = parseReport(files.report);
+      functional = readFunctional(files.functional);
+    } else {
+      report = parseReport(body);
+    }
   } catch (e) {
-    return fail(400, e instanceof ReportError ? e.message : "could not read the report");
+    return fail(400, e instanceof ReportError || e instanceof ReportProblem ? e.message : "could not read the report");
   }
   const stored: string[] = [];
   for (const [v, part] of versionsOf(project, version ?? "default", report)) {
@@ -58,8 +69,12 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ owner:
       commit: { sha: commit.toLowerCase(), message: q.get("commit_message"), timestamp },
       report: part,
       source: "upload",
+      functional,
     });
     stored.push(v);
   }
-  return Response.json({ stored, url: projectUrl(project) }, { status: 201 });
+  return Response.json(
+    { stored, url: projectUrl(project), ...(functional && !(functional instanceof Map) ? { functional_error: functional.error } : {}) },
+    { status: 201 },
+  );
 }

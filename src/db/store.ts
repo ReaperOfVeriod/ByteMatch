@@ -5,7 +5,8 @@ import { ACCESS_ERROR_PATTERN } from "../lib/visibility";
 import { encodeReport, parseReport } from "../report/parse";
 import type { Measures, Report } from "../report/types";
 import { db } from "./client";
-import { projects, reportBlobs, reports, type Project, type ReportRow } from "./schema";
+import { functionalLists, projects, reportBlobs, reports, type Project, type ReportRow } from "./schema";
+import { summarizeFunctional, type FunctionalList, type StoredFunctional } from "../report/functional";
 
 export interface CommitInfo {
   sha: string;
@@ -20,6 +21,8 @@ export interface StoreInput {
   report: Report;
   source: "artifact" | "upload" | "import";
   runId?: number | null;
+  /** The project's functional list, if it sent one, or why it couldn't be read. */
+  functional?: FunctionalList | { error: string } | null;
 }
 
 /** Saves one version's report at one commit (replacing an earlier one for the same commit). */
@@ -37,6 +40,21 @@ export async function storeReport(input: StoreInput): Promise<ReportRow> {
         .onConflictDoUpdate({ target: reportBlobs.sha256, set: { sha256: hash } })
         .returning({ id: reportBlobs.id });
     }
+    let functional: StoredFunctional | null = null;
+    let functionalListId: number | null = null;
+    if (input.functional instanceof Map) {
+      functional = summarizeFunctional(report, input.functional);
+      const entries = Object.fromEntries([...input.functional].sort(([a], [b]) => (a < b ? -1 : 1)));
+      const listHash = sha256(JSON.stringify(entries));
+      const [list] = await tx
+        .insert(functionalLists)
+        .values({ sha256: listHash, entries })
+        .onConflictDoUpdate({ target: functionalLists.sha256, set: { sha256: listHash } })
+        .returning({ id: functionalLists.id });
+      functionalListId = list.id;
+    } else if (input.functional) {
+      functional = { error: input.functional.error };
+    }
     const values = {
       projectId: project.id,
       version,
@@ -48,6 +66,8 @@ export async function storeReport(input: StoreInput): Promise<ReportRow> {
       measures: report.measures,
       categories: report.categories.map(({ id, name, measures }) => ({ id, name, measures })),
       blobId: blob.id,
+      functional,
+      functionalListId,
     };
     const [row] = await tx
       .insert(reports)
@@ -361,4 +381,14 @@ export async function pruneReports(days: number): Promise<number> {
                    order by commit_timestamp desc, id desc limit 1)`);
   await db().execute(dsql`delete from ${reportBlobs} b where not exists (select 1 from ${reports} r where r.blob_id = b.id)`);
   return result.count ?? 0;
+}
+
+/** A report row's functional list, as function name → confidence. */
+export async function loadFunctionalList(row: Pick<ReportRow, "functionalListId">): Promise<FunctionalList | null> {
+  if (!row.functionalListId) return null;
+  const [list] = await db()
+    .select({ entries: functionalLists.entries })
+    .from(functionalLists)
+    .where(eq(functionalLists.id, row.functionalListId));
+  return list ? new Map(Object.entries(list.entries)) : null;
 }

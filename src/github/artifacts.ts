@@ -126,22 +126,37 @@ export async function reportArtifacts(
   return out;
 }
 
-/** Downloads an artifact and returns the report file inside it. */
-export async function downloadReport(octokit: Octokit, owner: string, repo: string, artifactId: number): Promise<Uint8Array> {
+/** A report artifact's contents: the report, and the project's functional list if it has one. */
+export interface ArtifactFiles {
+  report: Uint8Array;
+  functional: { name: string; data: Uint8Array } | null;
+}
+
+/** Downloads an artifact and returns the report (and functional list) inside it. */
+export async function downloadReport(octokit: Octokit, owner: string, repo: string, artifactId: number): Promise<ArtifactFiles> {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}", {
     owner,
     repo,
     artifact_id: artifactId,
     archive_format: "zip",
   });
-  return reportFromZip(new Uint8Array(data as ArrayBuffer));
+  return readArtifact(new Uint8Array(data as ArrayBuffer));
 }
 
-/**
- * The report in an artifact zip: the only file, else report.json / report.binpb, else the one
- * file whose name contains "report". Refuses archives that unpack past MAX_REPORT_BYTES.
- */
+/** The report in an artifact zip (see readArtifact). */
 export function reportFromZip(zip: Uint8Array): Uint8Array {
+  return readArtifact(zip).report;
+}
+
+const FUNCTIONAL_FILES = ["functional.json", "functional.tsv"];
+
+/**
+ * An artifact zip's report: the only file, else report.json / report.binpb, else the one file
+ * whose name contains "report". Beside it, optionally, functional.json or functional.tsv: the
+ * functions the project has functional C for (src/report/functional.ts). Refuses archives that
+ * unpack past MAX_REPORT_BYTES.
+ */
+export function readArtifact(zip: Uint8Array): ArtifactFiles {
   const limit = config().MAX_REPORT_BYTES;
   let total = 0;
   const files = unzipSync(zip, {
@@ -152,17 +167,19 @@ export function reportFromZip(zip: Uint8Array): Uint8Array {
       return true;
     },
   });
-  const names = Object.keys(files);
-  if (names.length === 0) throw new ReportProblem("artifact-empty", "artifact is empty");
+  const all = Object.keys(files);
+  if (all.length === 0) throw new ReportProblem("artifact-empty", "artifact is empty");
   const base = (n: string) => n.split("/").pop()!.toLowerCase();
+  const functionalName = FUNCTIONAL_FILES.map((f) => all.find((n) => base(n) === f)).find(Boolean) ?? null;
+  const names = all.filter((n) => !FUNCTIONAL_FILES.includes(base(n)));
   const pick =
     (names.length === 1 && names[0]) ||
     names.find((n) => ["report.json", "report.binpb", "report.pb"].includes(base(n))) ||
     (names.filter((n) => base(n).includes("report")).length === 1 ? names.find((n) => base(n).includes("report")) : undefined);
   if (!pick) {
-    throw new ReportProblem("no-report-file", `artifact has several files and none is report.json: ${names.slice(0, 5).join(", ")}`, {
-      files: names.slice(0, 20),
+    throw new ReportProblem("no-report-file", `artifact has several files and none is report.json: ${all.slice(0, 5).join(", ")}`, {
+      files: all.slice(0, 20),
     });
   }
-  return files[pick];
+  return { report: files[pick], functional: functionalName ? { name: base(functionalName), data: files[functionalName] } : null };
 }

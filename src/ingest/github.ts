@@ -2,7 +2,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Octokit } from "octokit";
 import { db } from "../db/client";
 import { ingestProblems, projects, reports, type Project } from "../db/schema";
-import { storeReport } from "../db/store";
+import { storeReport, type StoreInput } from "../db/store";
+import { FunctionalListError, parseFunctionalList } from "../report/functional";
 import { downloadReport, fromWorkflow, getRun, listRuns, reportArtifacts, type WorkflowRun } from "../github/artifacts";
 import { repoClient } from "../github/client";
 import { redact } from "../lib/errors";
@@ -45,8 +46,11 @@ export async function ingestRun(project: Project, run: WorkflowRun, octokit: Oct
       continue;
     }
     let report: Report;
+    let functional: StoreInput["functional"] = null;
     try {
-      report = readReport(await downloadReport(octokit, project.owner, project.repo, artifact.id));
+      const files = await downloadReport(octokit, project.owner, project.repo, artifact.id);
+      report = readReport(files.report);
+      functional = readFunctional(files.functional);
     } catch (e) {
       if (!(e instanceof ReportProblem)) throw e;
       // This run's artifact will never change: record why, and carry on with the other artifacts and runs.
@@ -66,6 +70,7 @@ export async function ingestRun(project: Project, run: WorkflowRun, octokit: Oct
         report: part,
         source: "artifact",
         runId: run.id,
+        functional,
       });
       result.stored.push(version);
     }
@@ -79,6 +84,16 @@ function readReport(bytes: Uint8Array): Report {
     return parseReport(bytes);
   } catch (e) {
     throw new ReportProblem("report-unreadable", `report could not be parsed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** The artifact's functional list; one that can't be read is kept as its error, not a failure. */
+export function readFunctional(file: { name: string; data: Uint8Array } | null): StoreInput["functional"] {
+  if (!file) return null;
+  try {
+    return parseFunctionalList(file.data, file.name);
+  } catch (e) {
+    return { error: e instanceof FunctionalListError ? e.message : `${file.name} could not be read` };
   }
 }
 

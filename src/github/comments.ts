@@ -169,7 +169,7 @@ export async function commentOnRun(project: Project, runId: number): Promise<{ p
   const diffs: VersionDiff[] = [];
   for (const artifact of await reportArtifacts(octokit, project.owner, project.repo, run.id, project.artifactPattern)) {
     if (artifact.expired) continue;
-    const report = parseReport(await downloadReport(octokit, project.owner, project.repo, artifact.id));
+    const report = parseReport((await downloadReport(octokit, project.owner, project.repo, artifact.id)).report);
     for (const [version, head] of versionsOf(project, artifact.version, report)) {
       const baseRow = await latestFullReport(project.id, version);
       const base = baseRow ? await loadReport(baseRow) : null;

@@ -1,5 +1,6 @@
 import type { Project, ReportRow } from "../db/schema";
 import { defaultVersion, findProject, latestReport, projectVersions, reportAtPrefix } from "../db/store";
+import { isSummary } from "../report/functional";
 import { BADGE_MEASURES } from "../report/measures";
 import { MEASURE_KEYS, type Measures } from "../report/types";
 import { config } from "./config";
@@ -72,6 +73,21 @@ export function projectJson(r: Resolved) {
     measures: orderedMeasures(r.measures),
     report_versions: r.versions,
     report_categories: row.categories.map((c) => ({ id: c.id, name: c.name, measures: orderedMeasures(c.measures) })),
+    // ByteMatch's addition, after decomp.dev's fields: functional C, which is never progress.
+    functional: functionalJson(r),
+  };
+}
+
+/** The shown version's (or category's) functional C, or null when the project sends no list. */
+export function functionalJson(r: Resolved) {
+  const f = r.row.functional;
+  if (!isSummary(f)) return null;
+  const part = r.category ? f.categories[r.category.id] : f;
+  return {
+    code: part?.code ?? 0,
+    code_percent: part?.code_percent ?? 0,
+    functions: part?.functions ?? 0,
+    ...(r.category ? {} : { by_confidence: f.by_confidence, already_matched: f.already_matched, not_found: f.not_found }),
   };
 }
 

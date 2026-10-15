@@ -14,6 +14,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { Confidence, StoredFunctional } from "../report/functional";
 import type { Measures, ReportCategory } from "../report/types";
 
 const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
@@ -109,6 +110,14 @@ export const reportBlobs = pgTable("report_blobs", {
 });
 
 /** One version's progress at one commit. Measures are kept forever; the full report may expire. */
+/** Functional lists (function name → confidence), stored once per distinct list. */
+export const functionalLists = pgTable("functional_lists", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  sha256: text("sha256").notNull().unique(),
+  entries: jsonb("entries").$type<Record<string, Confidence>>().notNull(),
+  createdAt: created(),
+});
+
 export const reports = pgTable(
   "reports",
   {
@@ -129,6 +138,9 @@ export const reports = pgTable(
     measures: jsonb("measures").$type<Measures>().notNull(),
     categories: jsonb("categories").$type<CategoryMeasures[]>().notNull().default([]),
     blobId: bigint("blob_id", { mode: "number" }).references(() => reportBlobs.id, { onDelete: "set null" }),
+    /** What the project's functional list adds up to (never progress), or why it couldn't be read. */
+    functional: jsonb("functional").$type<StoredFunctional>(),
+    functionalListId: bigint("functional_list_id", { mode: "number" }).references(() => functionalLists.id, { onDelete: "set null" }),
     createdAt: created(),
   },
   (t) => [

@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import { makeProject, TEST_DB, useTestDb } from "../../test/db";
-import { history, latestReport, loadReport } from "../db/store";
-import { reportFromZip, versionFromName } from "../github/artifacts";
+import { history, latestReport, loadFunctionalList, loadReport } from "../db/store";
+import { readArtifact, reportFromZip, versionFromName } from "../github/artifacts";
 import { renderComment } from "../github/comments";
 import { parseReport } from "../report/parse";
 import { importFromDecompDev, versionNames } from "./decompdev";
@@ -68,6 +68,17 @@ describe("artifacts", () => {
       new Uint8Array([1]),
     );
     expect(() => reportFromZip(zipSync({ "a.txt": new Uint8Array([1]), "b.txt": new Uint8Array([2]) }))).toThrow(/none is report.json/);
+  });
+
+  it("reads a functional list beside the report, and never as the report", () => {
+    const files = readArtifact(zipSync({ "report.json": new Uint8Array([1]), "functional.json": new Uint8Array([2]) }));
+    expect(files.report).toEqual(new Uint8Array([1]));
+    expect(files.functional).toEqual({ name: "functional.json", data: new Uint8Array([2]) });
+    // A report that is the artifact's only other file is still found.
+    expect(readArtifact(zipSync({ "progress/x.json": new Uint8Array([3]), "functional.tsv": new Uint8Array([4]) })).report).toEqual(
+      new Uint8Array([3]),
+    );
+    expect(readArtifact(zipSync({ "report.json": new Uint8Array([1]) })).functional).toBeNull();
   });
 
   it("says which files an artifact without a report holds", () => {
@@ -157,6 +168,45 @@ describe.skipIf(!TEST_DB)("ingest", () => {
     github.client = again;
     expect(await pollProject(p)).toEqual([]);
     expect(again.request.mock.calls.filter(([route]) => String(route).includes("artifacts"))).toHaveLength(0);
+  });
+
+  it("stores what an artifact's functional list adds up to", async () => {
+    const p = await makeProject();
+    // The fixture is fully matched: mark three functions unmatched for this test.
+    const raw = JSON.parse(fixture.toString());
+    const all: { name: string; size: string; fuzzy_match_percent: number }[] = raw.units.flatMap(
+      (u: { functions: unknown[] }) => u.functions,
+    );
+    for (const f of all.slice(0, 3)) f.fuzzy_match_percent = 50;
+    const reportBytes = new TextEncoder().encode(JSON.stringify(raw));
+    const parsed = parseReport(reportBytes);
+    const unmatched = all.slice(0, 3).map((f) => ({ name: f.name, size: Number(f.size) }));
+    const matched = all[3];
+    const list = { functions: [...unmatched.map((f) => ({ name: f.name, confidence: "high" })), { name: matched.name }] };
+    const runs = [
+      {
+        id: 1,
+        sha: "aaa",
+        time: "2026-10-01T00:00:00Z",
+        artifacts: [
+          {
+            id: 10,
+            name: "SCES_509.16_report",
+            files: { "report.json": reportBytes, "functional.json": new TextEncoder().encode(JSON.stringify(list)) },
+          },
+        ],
+      },
+    ];
+    github.client = fakeGitHub(runs);
+    await pollProject(p);
+    const row = (await latestReport(p.id, "SCES_509.16"))!;
+    expect(row.functional).toMatchObject({ functions: 3, already_matched: 1, listed: 4 });
+    expect(row.functional && "code" in row.functional ? row.functional.code : 0).toBe(
+      unmatched.slice(0, 3).reduce((n, f) => n + f.size, 0),
+    );
+    // The measures are the report's own: functional C is never progress.
+    expect(row.measures).toEqual(parsed.measures);
+    expect((await loadFunctionalList(row))?.get(unmatched[0].name)).toBe("high");
   });
 
   it("tells the maintainers when the newest run has no report, without failing", async () => {

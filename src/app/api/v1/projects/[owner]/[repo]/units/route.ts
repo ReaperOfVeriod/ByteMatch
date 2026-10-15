@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { latestFullReport, loadReport } from "@/db/store";
+import { latestFullReport, loadFunctionalList, loadReport } from "@/db/store";
 import { NotFound, resolve } from "@/lib/project-data";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ owner: 
     const commit = q.get("commit");
     const r = await resolve(owner, repo, q.get("version"), null, commit);
     const row = commit ? (r.row.blobId ? r.row : undefined) : await latestFullReport(r.project.id, r.version);
-    const report = row ? await loadReport(row) : null;
+    const [report, functional] = row ? await Promise.all([loadReport(row), loadFunctionalList(row)]) : [null, null];
     const unit = report?.units.find((u) => u.name === q.get("unit"));
     if (!unit) throw new NotFound("Unit not found");
     return Response.json(
@@ -24,6 +24,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ owner: 
           size: f.size,
           fuzzy_match_percent: f.fuzzy_match_percent,
           address: f.metadata?.virtual_address ?? null,
+          // Has functional C (and how sure the project is), when unmatched and listed.
+          // Missing for 0%: objdiff leaves zero values out.
+          functional: (f.fuzzy_match_percent ?? 0) < 100 ? (functional?.get(f.name) ?? null) : null,
         })),
       },
       { headers: { "cache-control": "public, max-age=60" } },
