@@ -12,7 +12,7 @@ export function projectStatus(p: { enabled: boolean; lastError: string | null },
 export const STATUS_STYLE: Record<ProjectStatus, string> = {
   healthy: "bg-done/15 text-good",
   syncing: "bg-accent/15 text-accent",
-  erroring: "bg-[#eda100]/15 text-[#f0b429]",
+  erroring: "bg-warn/15 text-warn",
   hidden: "bg-bad/15 text-bad",
   disabled: "bg-surface-3 text-ink-3",
 };

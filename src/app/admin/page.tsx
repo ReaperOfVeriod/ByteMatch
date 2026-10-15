@@ -18,7 +18,7 @@ const ago = (iso: string | null) => {
 };
 
 function Card({ title, children, tone }: { title: string; children: React.ReactNode; tone?: "good" | "bad" | "warn" }) {
-  const dot = tone === "good" ? "bg-done" : tone === "bad" ? "bg-bad" : tone === "warn" ? "bg-[#eda100]" : "bg-ink-3";
+  const dot = tone === "good" ? "bg-done" : tone === "bad" ? "bg-bad" : tone === "warn" ? "bg-warn" : "bg-ink-3";
   return (
     <section className="panel p-5">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
@@ -122,7 +122,7 @@ export default async function AdminOverview() {
             <div className="text-xs text-ink-3">total</div>
           </div>
           <div>
-            <div className={`text-xl ${counts.erroring ? "text-[#f0b429]" : "text-ink"}`}>{fmt.format(counts.erroring)}</div>
+            <div className={`text-xl ${counts.erroring ? "text-warn" : "text-ink"}`}>{fmt.format(counts.erroring)}</div>
             <div className="text-xs text-ink-3">erroring</div>
           </div>
           <div>

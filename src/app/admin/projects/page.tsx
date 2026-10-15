@@ -87,7 +87,7 @@ export default async function AdminProjects({ searchParams }: Params) {
                 {" · "}submitted by {p.submitter ?? "unknown"} · {p.reports} reports · checked{" "}
                 {p.last_polled_at ? <LocalTime value={p.last_polled_at} /> : "never"}
               </div>
-              {p.last_error ? <div className="mt-1 truncate font-mono text-xs text-[#f0b429]">{redact(p.last_error)}</div> : null}
+              {p.last_error ? <div className="mt-1 truncate font-mono text-xs text-warn">{redact(p.last_error)}</div> : null}
               {p.icon_url ? (
                 <div className="mt-1 truncate text-xs text-ink-3">
                   Icon:{" "}

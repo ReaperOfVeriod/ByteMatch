@@ -42,38 +42,30 @@ const bytes = (n: number) =>
 
 // ---- Tile shading: one hue per state, lit from the centre and falling off to the edges. ----
 
-type Rgb = [number, number, number];
-const hex = (c: Rgb) =>
-  `#${c
-    .map((v) =>
-      Math.round(Math.max(0, Math.min(255, v)))
-        .toString(16)
-        .padStart(2, "0"),
-    )
-    .join("")}`;
-const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const scale = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
+// Tile colours are the theme's --tile-* tokens (globals.css), so the grid follows the theme.
+// In progress blends from --tile-low to --tile-high by how close the unit is to matching.
 
-const DONE: Rgb = [31, 168, 64];
-const IDLE: Rgb = [46, 55, 72];
-const BLUE_LOW: Rgb = [14, 58, 104];
-const BLUE_HIGH: Rgb = [37, 134, 214];
-
-function baseColor(matched: number, fuzzy: number): Rgb {
-  if (matched >= 100) return DONE;
-  if (fuzzy <= 0) return IDLE;
-  return mix(BLUE_LOW, BLUE_HIGH, Math.min(1, fuzzy / 100));
+function baseColor(matched: number, fuzzy: number): string {
+  if (matched >= 100) return "var(--tile-done)";
+  if (fuzzy <= 0) return "var(--idle)";
+  const t = Math.round(Math.min(1, fuzzy / 100) * 100);
+  return `color-mix(in srgb, var(--tile-high) ${t}%, var(--tile-low))`;
 }
 
-function shade(matched: number, fuzzy: number): string {
+/** Lit from the centre, falling off to the edges. The flat colour stays as a fallback. */
+function shade(matched: number, fuzzy: number): React.CSSProperties {
   const base = baseColor(matched, fuzzy);
-  return `radial-gradient(ellipse 85% 85% at 50% 42%, ${hex(scale(base, 1.18))} 0%, ${hex(base)} 52%, ${hex(scale(base, 0.62))} 100%)`;
+  const lit = (k: number) => `rgb(from ${base} calc(r * ${k}) calc(g * ${k}) calc(b * ${k}))`;
+  return {
+    backgroundColor: base,
+    backgroundImage: `radial-gradient(ellipse 85% 85% at 50% 42%, ${lit(1.18)} 0%, ${base} 52%, ${lit(0.62)} 100%)`,
+  };
 }
 
 const LEGEND = [
-  { label: "Matched", color: hex(DONE) },
-  { label: "In progress", color: hex(mix(BLUE_LOW, BLUE_HIGH, 0.7)) },
-  { label: "Not started", color: hex(IDLE) },
+  { label: "Matched", color: baseColor(100, 100) },
+  { label: "In progress", color: baseColor(0, 70) },
+  { label: "Not started", color: baseColor(0, 0) },
 ];
 
 /** The grid's pixel size: full width, and as tall as the screen allows so the page needn't scroll. */
@@ -301,8 +293,8 @@ export function UnitMap({
               top: y,
               width: w,
               height: h,
-              background: shade(t.matched, t.fuzzy),
-              boxShadow: pinned?.key === t.key ? "inset 0 0 0 2px #fff" : "inset 0 0 0 0.5px rgb(3 6 12 / 0.75)",
+              ...shade(t.matched, t.fuzzy),
+              boxShadow: pinned?.key === t.key ? "inset 0 0 0 2px var(--text)" : "inset 0 0 0 0.5px var(--seam)",
             }}
           />
         ))}
@@ -311,7 +303,7 @@ export function UnitMap({
             key={`g:${g.item}`}
             aria-hidden
             className="pointer-events-none absolute"
-            style={{ left: g.x, top: g.y, width: g.w, height: g.h, boxShadow: "inset 0 0 0 1.5px rgb(3 6 12 / 0.9)" }}
+            style={{ left: g.x, top: g.y, width: g.w, height: g.h, boxShadow: "inset 0 0 0 1.5px var(--seam-strong)" }}
           />
         ))}
         {openUnit && !loaded ? <p className="absolute inset-0 grid place-items-center text-sm text-ink-3">Loading functions…</p> : null}

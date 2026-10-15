@@ -2,33 +2,61 @@
 @plugin "@tailwindcss/typography";
 
 /*
- * ByteMatch is dark only, on blue-slate neutrals. Text tokens hold ≥5:1 on every surface.
- * Data colours: --series-1 (blue) is code matched, --series-2 (orange) functions matched;
- * the unit grid uses --done (matched), --partial (started) and --idle (untouched).
+ * Colour comes from thirteen palette slots and nothing else; docs/theming.md is the ruling.
+ * A theme (src/lib/theme.ts) writes these slots onto <html> and can write nothing more, so every
+ * other colour below is derived from them and follows the theme. The values here are Slate, the
+ * default theme, and must equal THEMES.slate (a test holds them together).
  */
 :root {
   color-scheme: dark;
+
+  /* The slots. */
   --bg: #0b0f17;
   --surface: #111723;
-  --surface-2: #18202f;
-  --surface-3: #1f2939;
   --line: #253047;
-  --line-strong: #33415e;
   --text: #e6ecf5;
-  --text-2: #aab6c9;
   --text-3: #8592a8;
   --accent: #5b9cf5;
-  --accent-strong: #3b7fe0;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --track: #1f2939;
   --done: #2f9e44;
   --partial: #2563b8;
-  --idle: #343c4b;
+  --series-1: #3987e5;
+  --series-2: #d95926;
   --good: #46b964;
   --bad: #ef6b6b;
-  --code-bg: #0e131d;
-  --ring: rgb(91 156 245 / 0.55);
+  --warn: #f0b429;
+
+  /* Derived. Fitted so Slate lands within a few units of its original hand-picked values. */
+  --surface-2: color-mix(in srgb, var(--surface) 68%, var(--line));
+  --surface-3: color-mix(in srgb, var(--surface) 34%, var(--line));
+  --line-strong: color-mix(in oklab, var(--line) 79%, var(--text-3));
+  --text-2: color-mix(in srgb, var(--text) 40%, var(--text-3));
+  --track: var(--surface-3);
+  --idle: color-mix(in srgb, var(--surface) 70%, var(--text-3));
+  --code-bg: color-mix(in srgb, var(--bg) 50%, var(--surface));
+  --ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  /* The primary button: a deeper accent, with white or black text, whichever reads. */
+  --accent-strong: oklch(from var(--accent) calc(l * 0.9) calc(c * 1.1) h);
+  --on-accent: oklch(from var(--accent-strong) clamp(0, (0.64 - l) * 1000, 1) 0 0);
+  /* Hatching on progress bars, and the seams between unit tiles. */
+  --done-deep: color-mix(in srgb, var(--done) 82%, black);
+  --series-1-deep: color-mix(in srgb, var(--series-1) 80%, black);
+  --seam: color-mix(in srgb, var(--bg) 75%, transparent);
+  --seam-strong: color-mix(in srgb, var(--bg) 90%, transparent);
+  /* Unit tiles: a livelier matched green, and the two ends of the in-progress blue. */
+  --tile-done: oklch(from var(--done) calc(l * 1.04) calc(c * 1.12) h);
+  --tile-low: oklch(from var(--partial) calc(l * 0.68) calc(c * 0.63) h);
+  --tile-high: oklch(from var(--partial) calc(l * 1.19) c h);
+}
+
+/* Without relative colour syntax, the primary button falls back to the accent itself. */
+@supports not (color: oklch(from red l c h)) {
+  :root {
+    --accent-strong: var(--accent);
+    --on-accent: #fff;
+    --tile-done: var(--done);
+    --tile-low: color-mix(in srgb, var(--partial) 45%, var(--bg));
+    --tile-high: var(--partial);
+  }
 }
 
 @theme inline {
@@ -52,6 +80,8 @@
   --color-good: var(--good);
   --color-bad: var(--bad);
   --color-code: var(--code-bg);
+  --color-warn: var(--warn);
+  --color-on-accent: var(--on-accent);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius-panel: 1rem;
@@ -64,7 +94,8 @@ html {
 }
 
 body {
-  background: radial-gradient(1200px 520px at 50% -220px, rgb(59 127 224 / 0.12), transparent 70%), var(--bg);
+  background:
+    radial-gradient(1200px 520px at 50% -220px, color-mix(in srgb, var(--accent-strong) 12%, transparent), transparent 70%), var(--bg);
   background-repeat: no-repeat;
   color: var(--text);
   caret-color: var(--accent);
@@ -72,7 +103,7 @@ body {
 }
 
 ::selection {
-  background: rgb(91 156 245 / 0.35);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--text);
 }
 
@@ -100,7 +131,7 @@ kbd {
     background: var(--surface);
     border-radius: var(--radius-panel);
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.02) inset,
+      0 1px 0 color-mix(in srgb, var(--text) 2%, transparent) inset,
       0 12px 32px -18px rgb(0 0 0 / 0.6);
   }
 
@@ -127,7 +158,7 @@ kbd {
   .field:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgb(91 156 245 / 0.18);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   .btn {
@@ -151,10 +182,10 @@ kbd {
   }
   .btn-primary {
     background: var(--accent-strong);
-    color: #fff;
+    color: var(--on-accent);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #4a8be8;
+    background: color-mix(in srgb, var(--accent) 50%, var(--accent-strong));
   }
   .btn-ghost {
     border: 1px solid var(--line);

@@ -131,8 +131,8 @@ function ProgressSection({
 }) {
   const stripes = (a: string, b: string) => `repeating-linear-gradient(135deg, ${a} 0 7px, ${b} 7px 14px)`;
   const solid = tone === "data" ? "var(--series-1)" : "var(--done)";
-  const done = tone === "data" ? stripes("var(--series-1)", "#2b6dbf") : stripes("var(--done)", "#25863d");
-  const faint = stripes("#3b4a63", "#2c3850");
+  const done = tone === "data" ? stripes("var(--series-1)", "var(--series-1-deep)") : stripes("var(--done)", "var(--done-deep)");
+  const faint = stripes("var(--line-strong)", "color-mix(in srgb, var(--line) 50%, var(--line-strong))");
   const of = (bytes: number) => `${fmtInt.format(Math.round(bytes))} of ${fmtInt.format(total)} bytes (${formatBytes(Math.round(bytes))})`;
   const l = Math.min(100, linked);
   const mt = Math.max(0, Math.min(100, matched) - l);
