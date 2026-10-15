@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
+import { CopyButton } from "@/components/copy-button";
 import { StyleSwatch, ThemeSwatch } from "@/components/theme-swatch";
 import { Check, Plus } from "@/components/ui/icons";
 import { useTheme } from "@/components/use-theme";
+import { lookupThemeAction, shareThemeAction, type LookupResult, type ShareResult } from "./actions";
 import {
   contrast,
   isHex,
-  parseTheme,
+  normalizeCode,
   PRESET_IDS,
   serializeTheme,
   SLOTS,
@@ -38,7 +40,6 @@ interface Note {
   tone: "good" | "bad";
   text: string;
   undo?: () => void;
-  edit?: Theme;
 }
 
 const sectionTitle = "text-xs font-medium tracking-wide text-ink-3 uppercase";
@@ -57,10 +58,7 @@ export function ThemeStudio() {
     if (!editing) endPreview();
   }, [editing, endPreview]);
 
-  const currentName =
-    custom.find((t) => `custom:${t.name}` === chosen.colours)?.name ??
-    THEMES[chosen.colours.slice("preset:".length) as keyof typeof THEMES]?.name ??
-    "Theme";
+  const codes = useShareCodes(custom, saveCustom);
 
   function restore(before: { list: Theme[]; chosen: Chosen }) {
     saveCustom(before.list);
@@ -68,70 +66,36 @@ export function ThemeStudio() {
     setNote(null);
   }
 
-  /** Add an imported theme to the saved list (renaming it if the name is taken) and switch to it. */
-  function add(theme: Theme, from: "bytematch" | "albedo") {
+  /** Add a theme someone shared and switch to it; one you already have is simply switched to. */
+  function add(theme: Theme) {
+    const same = custom.find((t) => (theme.code && t.code === theme.code) || serializeTheme(t) === serializeTheme(theme));
+    if (same) {
+      choose({ colours: `custom:${same.name}`, palette: same.palette, style: same.style });
+      return setNote({ tone: "good", text: `You already have “${same.name}”. Switched to it.` });
+    }
     const name = uniqueName(theme.name, custom);
-    const saved = { ...theme, name };
+    // A renamed theme is a different theme, so it gets its own code.
+    const saved: Theme = name === theme.name ? theme : { name, palette: theme.palette, style: theme.style };
     const before = { list: custom, chosen };
     saveCustom([...custom, saved]);
     choose({ colours: `custom:${name}`, palette: saved.palette, style: saved.style });
-    const what = `“${theme.name}”${from === "albedo" ? " (an Albedo theme)" : ""}`;
     setNote({
       tone: "good",
       text:
         name === theme.name
-          ? `Imported ${what} and switched to it.`
-          : `Imported ${what} as “${name}”, since you already have one called “${theme.name}”. Switched to it.`,
+          ? `Added “${name}” and switched to it.`
+          : `Added it as “${name}”, since you already have a different theme called “${theme.name}”. Switched to it.`,
       undo: () => restore(before),
-      edit: saved,
     });
   }
-
-  /** Read a shared theme's text and add it, or say what's wrong with it. */
-  function importText(text: string) {
-    const r = parseTheme(text);
-    if (r.ok) add(r.theme, r.from);
-    else if (!/^\s*(bytematch|albedo)-theme:/.test(text)) {
-      setNote({
-        tone: "bad",
-        text: "Your clipboard doesn't hold a theme. Copy the whole line someone shared (it starts with bytematch-theme:), then press Paste theme again.",
-      });
-    } else setNote({ tone: "bad", text: r.error });
-  }
-
-  async function pasteFromClipboard() {
-    let text: string;
-    try {
-      text = await navigator.clipboard.readText();
-    } catch {
-      return setNote({
-        tone: "bad",
-        text: "Your browser didn't let the page read the clipboard. Press Ctrl+V (⌘V on a Mac) anywhere on this page instead.",
-      });
-    }
-    importText(text);
-  }
-
-  // Pasting a theme anywhere on the page imports it, unless you're typing in a field.
-  const onThemePaste = useEffectEvent((text: string) => importText(text));
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (editing || target?.closest("input, textarea, [contenteditable]")) return;
-      const text = e.clipboardData?.getData("text") ?? "";
-      if (!/^\s*(bytematch|albedo)-theme:/.test(text)) return;
-      e.preventDefault();
-      onThemePaste(text);
-    };
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [editing]);
 
   function save() {
     if (!draft) return;
     const name = draft.name.trim().replace(/\s+/g, " ");
     if (!name) return setNote({ tone: "bad", text: "Give the theme a name first." });
-    const theme: Theme = { name, palette: draft.palette, style: draft.style };
+    const old = custom.find((t) => t.name === draft.original);
+    const unchanged = old && serializeTheme(old) === serializeTheme({ name, palette: draft.palette, style: draft.style });
+    const theme: Theme = { name, palette: draft.palette, style: draft.style, code: unchanged ? old.code : undefined };
     const clash = custom.some((t) => t.name === name && t.name !== draft.original);
     const list = custom.filter((t) => t.name !== draft.original && t.name !== name);
     const at = draft.original ? custom.findIndex((t) => t.name === draft.original) : -1;
@@ -142,7 +106,11 @@ export function ThemeStudio() {
     setDraft(null);
     setNote({
       tone: "good",
-      text: clash ? `Saved “${name}”, replacing your earlier theme of that name.` : `Saved “${name}” and switched to it.`,
+      text: clash
+        ? `Saved “${name}”, replacing your earlier theme of that name.`
+        : old?.code && !unchanged
+          ? `Saved “${name}”. It gets a new code, since it changed; ${old.code} still shows the old version.`
+          : `Saved “${name}” and switched to it.`,
       undo: () => restore(before),
     });
   }
@@ -154,19 +122,15 @@ export function ThemeStudio() {
     setNote({ tone: "good", text: `Deleted “${t.name}”.`, undo: () => restore(before) });
   }
 
-  async function copy(theme: Theme) {
-    try {
-      await navigator.clipboard.writeText(serializeTheme(theme));
-      setNote({ tone: "good", text: `Copied “${theme.name}”. Send that line to anyone; they press Paste theme on this page.` });
-    } catch {
-      setNote({ tone: "bad", text: "This browser didn't allow copying. Try again, or use a different browser." });
-    }
-  }
-
   const edit = (t: Theme) => {
     setNote(null);
     setDraft({ original: t.name, name: t.name, palette: { ...t.palette }, style: { ...t.style } });
   };
+
+  const currentName =
+    custom.find((t) => `custom:${t.name}` === chosen.colours)?.name ??
+    THEMES[chosen.colours.slice("preset:".length) as keyof typeof THEMES]?.name ??
+    "Theme";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -221,49 +185,35 @@ export function ThemeStudio() {
         </section>
 
         <section className="panel p-5" aria-labelledby="yours">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
             <h2 id="yours" className={sectionTitle}>
               Your themes
             </h2>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost h-8 px-3"
-                disabled={editing}
-                onClick={pasteFromClipboard}
-                title="Add a theme someone shared with you, from your clipboard (or press Ctrl+V / ⌘V on this page)"
-              >
-                Paste theme
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost h-8 px-3"
-                onClick={() => copy({ name: currentName, palette: chosen.palette, style: chosen.style })}
-                title="Copy the colours and layout you're using now, to share them"
-              >
-                Copy current
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost h-8 px-3"
-                disabled={editing}
-                onClick={() => {
-                  setNote(null);
-                  setDraft({
-                    original: null,
-                    name: uniqueName(`My ${currentName}`, custom),
-                    palette: { ...chosen.palette },
-                    style: { ...chosen.style },
-                  });
-                }}
-              >
-                <Plus size={14} />
-                New theme
-              </button>
-            </div>
+            <button
+              type="button"
+              className="btn btn-ghost h-8 px-3"
+              disabled={editing}
+              onClick={() => {
+                setNote(null);
+                setDraft({
+                  original: null,
+                  name: uniqueName(`My ${currentName}`, custom),
+                  palette: { ...chosen.palette },
+                  style: { ...chosen.style },
+                });
+              }}
+            >
+              <Plus size={14} />
+              New theme
+            </button>
           </div>
+          <p className="mb-4 text-sm text-ink-3">
+            Each theme you save gets a code. Give someone the code, or its link, and they can add the theme here.
+          </p>
 
-          {note ? <NoteLine note={note} onEdit={edit} /> : null}
+          <CodeLookup disabled={editing} onAdd={add} />
+
+          {note ? <NoteLine note={note} /> : null}
 
           {custom.length ? (
             <ul className="mt-4 grid gap-2">
@@ -271,34 +221,38 @@ export function ThemeStudio() {
                 const inUse = !draft && chosen.colours === `custom:${t.name}`;
                 const sid = styleId(t.style);
                 return (
-                  <li key={t.name} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-2 p-2.5">
-                    <ThemeSwatch palette={t.palette} className="h-9 w-14" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm">{t.name}</span>
-                      <span className="block text-xs text-ink-3">
+                  <li
+                    key={t.name}
+                    className="grid gap-3 rounded-lg border border-line bg-surface-2 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+                  >
+                    <ThemeSwatch palette={t.palette} className="h-10 w-16" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="truncate font-medium">{t.name}</span>
+                        {inUse ? <span className="text-xs text-accent">In use</span> : null}
+                      </div>
+                      <div className="text-xs text-ink-3">
                         {sid
                           ? `${STYLES[sid].name} layout`
                           : `${t.style.layout === "directory" ? "Directory" : "Classic"} layout, adjusted`}
-                        {inUse ? " · in use" : ""}
-                      </span>
-                    </span>
+                      </div>
+                      <ShareCode theme={t} status={codes.status(t)} onRetry={() => codes.retry(t)} />
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        className="btn btn-ghost h-8 px-3"
-                        disabled={inUse}
-                        onClick={() => {
-                          setDraft(null);
-                          choose({ colours: `custom:${t.name}`, palette: t.palette, style: t.style });
-                        }}
-                      >
-                        {inUse ? "In use" : "Use"}
-                      </button>
+                      {inUse ? null : (
+                        <button
+                          type="button"
+                          className="btn btn-ghost h-8 px-3"
+                          onClick={() => {
+                            setDraft(null);
+                            choose({ colours: `custom:${t.name}`, palette: t.palette, style: t.style });
+                          }}
+                        >
+                          Use
+                        </button>
+                      )}
                       <button type="button" className="btn btn-ghost h-8 px-3" onClick={() => edit(t)}>
                         Edit
-                      </button>
-                      <button type="button" className="btn btn-ghost h-8 px-3" onClick={() => copy(t)}>
-                        Copy
                       </button>
                       <button type="button" className="btn btn-ghost h-8 px-3 hover:text-bad" onClick={() => remove(t)}>
                         Delete
@@ -309,21 +263,11 @@ export function ThemeStudio() {
               })}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-ink-3">
-              None saved yet. Press New theme to start from what you&apos;re using now, or Paste theme to add one someone shared with you.
-            </p>
+            <p className="mt-4 text-sm text-ink-3">None saved yet. Press New theme to start from what you&apos;re using now.</p>
           )}
         </section>
 
-        {draft ? (
-          <Editor
-            draft={draft}
-            onChange={setDraft}
-            onSave={save}
-            onCancel={() => setDraft(null)}
-            onCopy={() => copy({ name: draft.name.trim() || "Untitled", palette: draft.palette, style: draft.style })}
-          />
-        ) : null}
+        {draft ? <Editor draft={draft} onChange={setDraft} onSave={save} onCancel={() => setDraft(null)} /> : null}
       </div>
 
       <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
@@ -339,19 +283,158 @@ function uniqueName(name: string, list: Theme[]) {
   for (let i = 2; ; i++) if (!taken.has(`${name} ${i}`)) return `${name} ${i}`;
 }
 
-function NoteLine({ note, onEdit }: { note: Note; onEdit: (t: Theme) => void }) {
+type CodeStatus = "ready" | "pending" | { error: string };
+
+/**
+ * Gives every saved theme without a code its code, one at a time, and remembers it with the theme.
+ * Failures are shown on the theme with a retry, never retried in a loop.
+ */
+function useShareCodes(custom: Theme[], saveCustom: (list: Theme[]) => void) {
+  const [failed, setFailed] = useState<Record<string, string>>({});
+  const inFlight = useRef<string | null>(null);
+  const key = (t: Theme) => serializeTheme(t);
+  const next = custom.find((t) => !t.code && !failed[key(t)]);
+
+  // Reads the list as it is when the code arrives, which may differ from when it was asked for.
+  const done = useEffectEvent((k: string, r: ShareResult) => {
+    inFlight.current = null;
+    if ("error" in r) return setFailed((f) => ({ ...f, [k]: r.error }));
+    saveCustom(custom.map((x) => (key(x) === k && !x.code ? { ...x, code: r.code } : x)));
+  });
+
+  useEffect(() => {
+    if (!next || inFlight.current) return;
+    const k = key(next);
+    inFlight.current = k;
+    shareThemeAction(k).then(
+      (r) => done(k, r),
+      () => done(k, { error: "The server couldn't be reached." }),
+    );
+  }, [next]);
+
+  return {
+    status: (t: Theme): CodeStatus => (t.code ? "ready" : failed[key(t)] ? { error: failed[key(t)] } : "pending"),
+    retry: (t: Theme) =>
+      setFailed((f) => {
+        const rest = { ...f };
+        delete rest[key(t)];
+        return rest;
+      }),
+  };
+}
+
+/** A theme's code, big enough to read out, with buttons that say "Copied" when they've copied. */
+function ShareCode({ theme, status, onRetry }: { theme: Theme; status: CodeStatus; onRetry: () => void }) {
+  if (status === "pending") return <div className="mt-2 text-xs text-ink-3">Getting a share code…</div>;
+  if (status !== "ready") {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-bad">
+        No share code yet: {status.error}
+        <button type="button" className="text-accent underline" onClick={onRetry}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+  const link = `${window.location.origin}/theme/${theme.code}`;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-ink-3">Code</span>
+      <code className="rounded-md border border-line bg-code px-2 py-1 font-mono text-sm tracking-wide text-ink">{theme.code}</code>
+      <CopyButton value={theme.code!} className="btn btn-ghost h-7 px-2.5 text-xs" title="Copy the code">
+        Copy code
+      </CopyButton>
+      <CopyButton value={link} className="btn btn-ghost h-7 px-2.5 text-xs" title={link}>
+        Copy link
+      </CopyButton>
+    </div>
+  );
+}
+
+/**
+ * Type or paste a code (or a share link). Once it looks like a code it's looked up straight away
+ * and the theme is shown before anything is added.
+ */
+function CodeLookup({ disabled, onAdd }: { disabled: boolean; onAdd: (t: Theme) => void }) {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<{ for: string; value: LookupResult } | null>(null);
+  const [pending, start] = useTransition();
+  const query = text.trim();
+  const looksLikeTheme = /^\s*(bytematch|albedo)-theme:/.test(query);
+  const ready = !!normalizeCode(query) || looksLikeTheme;
+  const shown = result && result.for === query ? result.value : null;
+
+  const look = useEffectEvent((q: string) =>
+    start(async () => {
+      const value = await lookupThemeAction(q);
+      setResult({ for: q, value });
+    }),
+  );
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => look(query), 250);
+    return () => clearTimeout(t);
+  }, [query, ready]);
+
+  return (
+    <div className="rounded-lg bg-surface-2 p-3">
+      <label htmlFor="code" className="mb-1.5 block text-sm text-ink-2">
+        Add a theme by its code
+      </label>
+      <input
+        id="code"
+        className="field max-w-sm font-mono"
+        placeholder="e.g. brave-otter-12"
+        value={text}
+        disabled={disabled}
+        onChange={(e) => setText(e.target.value)}
+        spellCheck={false}
+        autoComplete="off"
+        autoCapitalize="none"
+        aria-describedby="code-result"
+      />
+      <div id="code-result" aria-live="polite" className="text-sm">
+        {disabled ? <p className="mt-2 text-xs text-ink-3">Finish or cancel the theme you&apos;re editing first.</p> : null}
+        {query && !ready && !disabled ? (
+          <p className="mt-2 text-xs text-ink-3">Codes are two words and a number, like brave-otter-12.</p>
+        ) : null}
+        {ready && (pending || !shown) ? <p className="mt-2 text-xs text-ink-3">Looking it up…</p> : null}
+        {shown && "error" in shown ? <p className="mt-2 text-bad">{shown.error}</p> : null}
+        {shown && "theme" in shown ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-2.5">
+            <ThemeSwatch palette={shown.theme.palette} className="h-10 w-16" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{shown.theme.name}</span>
+              <span className="block text-xs text-ink-3">
+                {STYLES[styleId(shown.theme.style) ?? "classic"].name} layout
+                {shown.theme.code ? ` · ${shown.theme.code}` : looksLikeTheme && query.includes("albedo-theme:") ? " · from Albedo" : ""}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary h-9 px-4"
+              onClick={() => {
+                onAdd(shown.theme);
+                setText("");
+              }}
+            >
+              Add and use
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NoteLine({ note }: { note: Note }) {
   return (
     <p
       role="status"
-      className={`mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${note.tone === "good" ? "text-good" : "text-bad"}`}
+      className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${note.tone === "good" ? "text-good" : "text-bad"}`}
     >
       {note.tone === "good" ? <Check size={14} /> : null}
       <span>{note.text}</span>
-      {note.edit ? (
-        <button type="button" className="text-accent underline" onClick={() => onEdit(note.edit!)}>
-          Edit it
-        </button>
-      ) : null}
       {note.undo ? (
         <button type="button" className="text-accent underline" onClick={note.undo}>
           Undo
@@ -398,13 +481,11 @@ function Editor({
   onChange,
   onSave,
   onCancel,
-  onCopy,
 }: {
   draft: Draft;
   onChange: (d: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
-  onCopy: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   // Opening the editor brings it into view; it sits below the theme lists.
@@ -455,9 +536,6 @@ function Editor({
       <div className="mt-6 flex flex-wrap gap-2">
         <button type="button" className="btn btn-primary" onClick={onSave}>
           Save and use
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onCopy}>
-          Copy as text
         </button>
         <button type="button" className="btn btn-ghost" onClick={onCancel}>
           Cancel

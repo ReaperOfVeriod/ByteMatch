@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   CHOSEN_COOKIE,
+  CODE_PATTERN,
   CUSTOM_KEY,
   DEFAULT_CHOSEN,
   encodeChosen,
@@ -119,7 +120,9 @@ function parseCustom(raw: string | null): Theme[] {
   if (!Array.isArray(list)) return [];
   return list.flatMap((t) => {
     const r = parseTheme(`bytematch-theme:2:${JSON.stringify(t)}`);
-    return r.ok ? [r.theme] : [];
+    if (!r.ok) return [];
+    const code = (t as { code?: unknown }).code;
+    return [typeof code === "string" && CODE_PATTERN.test(code) ? { ...r.theme, code } : r.theme];
   });
 }
 
@@ -135,6 +138,13 @@ export function ThemeProvider({ initial, children }: { initial: Chosen; children
     paintIcon(initial.palette);
   }, [initial.palette]);
 
+  // The choice as of now, for ending previews. Set in choose() as well as here, because a child's
+  // effects (the editor closing, say) run before this component's.
+  const latest = useRef(chosen);
+  useEffect(() => {
+    latest.current = chosen;
+  }, [chosen]);
+
   const choose = useCallback(
     (next: Partial<Chosen>) => {
       const c = { ...chosen, ...next };
@@ -143,6 +153,7 @@ export function ThemeProvider({ initial, children }: { initial: Chosen; children
         ? `${CHOSEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`
         : `${CHOSEN_COOKIE}=${encodeChosen(c)}; path=/; max-age=31536000; SameSite=Lax`;
       paint(c.palette, c.style);
+      latest.current = c;
       setChosen(c);
       // Layout is markup the server renders, so a new layout needs a fresh render.
       if (c.style.layout !== chosen.style.layout) router.refresh();
@@ -150,23 +161,26 @@ export function ThemeProvider({ initial, children }: { initial: Chosen; children
     [chosen, router],
   );
 
+  // A stable way back from a preview, to whatever is chosen by then.
+  const endPreview = useCallback(() => paint(latest.current.palette, latest.current.style), []);
+
   const value = useMemo<ThemeContext>(
     () => ({
       chosen,
       choose,
       preview: paint,
-      endPreview: () => paint(chosen.palette, chosen.style),
+      endPreview,
       custom,
       saveCustom: (list) => {
         try {
-          localStorage.setItem(CUSTOM_KEY, JSON.stringify(list.map(({ name, palette, style }) => ({ name, palette, style }))));
+          localStorage.setItem(CUSTOM_KEY, JSON.stringify(list.map(({ name, palette, style, code }) => ({ name, palette, style, code }))));
         } catch {
           // Storage blocked: nothing to keep them in.
         }
         window.dispatchEvent(new Event(THEME_EVENT));
       },
     }),
-    [chosen, choose, custom],
+    [chosen, choose, endPreview, custom],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
