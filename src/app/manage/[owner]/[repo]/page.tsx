@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { canManage, currentSession } from "@/auth/session";
-import { findProject, gameNames, projectVersions } from "@/db/store";
+import { findProject, projectVersions } from "@/db/store";
+import { loadGames } from "@/lib/game-data";
+import { resolveKey } from "@/lib/games";
+import { NameField, type NameOption } from "../../name-field";
 import { config } from "@/lib/config";
 import { projectProblem, skippedRuns } from "@/lib/project-problems";
 import { ProblemPanel } from "@/components/problem-panel";
@@ -29,7 +32,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1.5 text-sm">
+    <label className="grid content-start gap-1.5 text-sm">
       <span>
         {label} {hint ? <span className="text-xs text-ink-3">{hint}</span> : null}
       </span>
@@ -48,9 +51,15 @@ export default async function ManageProject({ params, searchParams }: Params) {
   const [versions, tokens, names, { added }] = await Promise.all([
     projectVersions(project.id),
     listTokens(project.id),
-    gameNames(),
+    loadGames(),
     searchParams,
   ]);
+  const gameOptions: NameOption[] = names.games.map((g) => ({ title: g.title, key: g.key, projectIds: g.projects.map((p) => p.id) }));
+  const franchiseOptions: NameOption[] = names.franchises.map((f) => ({
+    title: f.title,
+    key: resolveKey(f.title, names.aliases.franchises),
+    projectIds: f.games.flatMap((g) => g.projects.map((p) => p.id)),
+  }));
   const site = config().PUBLIC_URL;
   const slug = config().GITHUB_APP_SLUG;
   const bound = (fn: typeof updateProject) => fn.bind(null, project.owner, project.repo);
@@ -227,23 +236,27 @@ export default async function ManageProject({ params, searchParams }: Params) {
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem]">
             <Field label="Game" hint="groups projects on one game page">
-              <input
+              <NameField
                 name="game"
+                kind="game"
                 defaultValue={project.game ?? ""}
-                list="game-names"
                 placeholder="Ratchet & Clank"
+                options={gameOptions}
+                aliases={[...names.aliases.games]}
+                projectId={project.id}
                 className={inputClass}
-                autoComplete="off"
               />
             </Field>
             <Field label="Franchise" hint="optional">
-              <input
+              <NameField
                 name="franchise"
+                kind="franchise"
                 defaultValue={project.franchise ?? ""}
-                list="franchise-names"
                 placeholder="Ratchet & Clank"
+                options={franchiseOptions}
+                aliases={[...names.aliases.franchises]}
+                projectId={project.id}
                 className={inputClass}
-                autoComplete="off"
               />
             </Field>
             <Field label="Year" hint="release">
@@ -255,16 +268,6 @@ export default async function ManageProject({ params, searchParams }: Params) {
                 className={inputClass}
               />
             </Field>
-            <datalist id="game-names">
-              {names.games.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
-            <datalist id="franchise-names">
-              {names.franchises.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
           </div>
           <Field label="Discord invite" hint="optional, shown on the project page">
             <input

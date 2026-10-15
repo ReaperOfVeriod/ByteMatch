@@ -202,16 +202,6 @@ export async function history(projectId: number, version: string) {
     .orderBy(asc(reports.commitTimestamp), asc(reports.id));
 }
 
-/** Game and franchise names already in use, offered as suggestions so projects agree on spelling. */
-export async function gameNames(): Promise<{ games: string[]; franchises: string[] }> {
-  const rows = await db()
-    .selectDistinct({ game: projects.game, franchise: projects.franchise })
-    .from(projects)
-    .where(eq(projects.enabled, true));
-  const uniq = (v: (string | null)[]) => [...new Set(v.filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b));
-  return { games: uniq(rows.map((r) => r.game)), franchises: uniq(rows.map((r) => r.franchise)) };
-}
-
 /** Every enabled project with its default version's latest measures, for the index. */
 export async function projectIndex() {
   const rows = await db().execute<{
