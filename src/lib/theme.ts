@@ -44,6 +44,8 @@ export interface Theme {
   name: string;
   palette: Palette;
   style: Style;
+  /** The share code ("brave-otter-12") once the theme has been shared; not part of its content. */
+  code?: string;
 }
 
 /** The slots in the order editors offer them, with the CSS property each one writes. */
@@ -311,6 +313,23 @@ export function parseTheme(text: string): ParseResult {
     palette[slot] = (p[key] as string).toLowerCase();
   }
   return { ok: true, theme: { name, palette, style: cleanStyle(data.style) }, from: albedo ? "albedo" : "bytematch" };
+}
+
+// ---- Share codes ----
+
+/** A share code: an adjective, an animal and a number ("brave-otter-12"), made by theme-codes.ts. */
+export const CODE_PATTERN = /^[a-z]+-[a-z]+-[1-9][0-9]$/;
+
+/** What someone typed, as a code if it can be one: case, spaces, a leading # or a pasted link don't matter. */
+export function normalizeCode(input: string): string | null {
+  const code = input
+    .trim()
+    .toLowerCase()
+    .replace(/^#/, "")
+    .replace(/^.*\/theme\//, "")
+    .replace(/[?#].*$/, "")
+    .replace(/[\s_]+/g, "-");
+  return CODE_PATTERN.test(code) ? code : null;
 }
 
 // ---- The chosen theme ----

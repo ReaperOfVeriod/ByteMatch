@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  normalizeCode,
   cleanStyle,
   contrast,
   decodeChosen,
@@ -162,5 +163,25 @@ describe("the theme cookie", () => {
   it("writes no custom properties for Slate, and the color-scheme for others", () => {
     expect(paletteVars(THEMES.slate.palette)).toEqual({});
     expect(paletteVars(THEMES.light.palette)).toMatchObject({ "--bg": "#f6f5f1", colorScheme: "light" });
+  });
+});
+
+describe("share codes", () => {
+  it("reads codes however they're typed or pasted", () => {
+    for (const input of [
+      "brave-otter-12",
+      " Brave Otter 12 ",
+      "#brave-otter-12",
+      "brave_otter_12",
+      "https://bytematch.dev/theme/brave-otter-12?x=1",
+    ]) {
+      expect(normalizeCode(input)).toBe("brave-otter-12");
+    }
+  });
+
+  it("rejects anything that isn't a code", () => {
+    for (const input of ["", "brave-otter", "brave-otter-1", "brave-otter-123", "brave-otter-12; drop", "../x-y-12"]) {
+      expect(normalizeCode(input)).toBeNull();
+    }
   });
 });

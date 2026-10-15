@@ -19,7 +19,7 @@ export function useTestDb() {
   beforeEach(async () => {
     const { sql } = await import("../src/db/client");
     await sql().unsafe(
-      "truncate users, sessions, projects, report_blobs, reports, api_tokens, pr_comments, blocked_accounts, audit_log, settings, site_admins restart identity cascade",
+      "truncate users, sessions, projects, report_blobs, reports, api_tokens, pr_comments, blocked_accounts, audit_log, settings, site_admins, shared_themes restart identity cascade",
     );
   });
   afterAll(async () => {

@@ -222,6 +222,27 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Custom themes shared by code ("brave-otter-12"). Anyone may share one, without signing in; a theme
+ * is identified by its content, so the same colours, style and name always get the same code, and
+ * editing a theme gives it a new one.
+ */
+export const sharedThemes = pgTable(
+  "shared_themes",
+  {
+    code: text("code").primaryKey(),
+    name: text("name").notNull(),
+    palette: jsonb("palette").$type<Record<string, string>>().notNull(),
+    style: jsonb("style").$type<Record<string, string>>().notNull(),
+    /** SHA-256 of the theme's canonical text, so identical themes share one code. */
+    contentHash: text("content_hash").notNull().unique(),
+    /** A salted hash of the sharer's address, only to limit how many a browser can share. */
+    sharerHash: text("sharer_hash"),
+    createdAt: created(),
+  },
+  (t) => [index("shared_themes_sharer_idx").on(t.sharerHash, t.createdAt)],
+);
+
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ReportRow = typeof reports.$inferSelect;
