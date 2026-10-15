@@ -189,8 +189,9 @@ export async function projectIndex() {
     version: string | null;
     measures: Measures | null;
     commit_timestamp: string | null;
+    image_url: string | null;
   }>(dsql`
-    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, r.version, r.measures, r.commit_timestamp
+    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, r.version, r.measures, r.commit_timestamp
     from ${projects} p
     left join lateral (
       select version, measures, commit_timestamp from ${reports} r

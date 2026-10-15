@@ -76,6 +76,8 @@ export const projects = pgTable(
     lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
     lastError: text("last_error"),
     lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+    /** An https link to the project's banner image, hosted elsewhere (ByteMatch never stores images). */
+    imageUrl: text("image_url"),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: created(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

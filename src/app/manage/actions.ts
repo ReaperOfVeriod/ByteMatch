@@ -10,6 +10,7 @@ import { findProject } from "@/db/store";
 import { userClient } from "@/github/client";
 import { config } from "@/lib/config";
 import { enqueue, JOBS } from "@/lib/queue";
+import { checkImageUrl } from "@/lib/images";
 import { createToken, revokeToken } from "@/lib/tokens";
 
 export interface FormState {
@@ -142,4 +143,15 @@ export async function deleteToken(owner: string, repo: string, form: FormData) {
   const project = await managed(owner, repo);
   await revokeToken(project.id, Number(form.get("id")));
   revalidatePath(`/manage/${owner}/${repo}`);
+}
+
+export async function setImageUrl(owner: string, repo: string, _: FormState, form: FormData): Promise<FormState> {
+  const project = await managed(owner, repo);
+  const checked = checkImageUrl(String(form.get("imageUrl") ?? ""));
+  if ("error" in checked) return { error: checked.error };
+  await db().update(projects).set({ imageUrl: checked.url, updatedAt: new Date() }).where(eq(projects.id, project.id));
+  revalidatePath(`/manage/${owner}/${repo}`);
+  revalidatePath(`/${owner}/${repo}`);
+  revalidatePath("/");
+  return { message: checked.url ? "Image saved." : "Image removed." };
 }

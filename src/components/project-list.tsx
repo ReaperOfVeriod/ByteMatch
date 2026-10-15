@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ExternalImage } from "./external-image";
 import { ProgressBar } from "./progress-bar";
 import { Search } from "./ui/icons";
 import { Select } from "./ui/select";
@@ -16,6 +17,7 @@ export interface ProjectRow {
   codePercent: number | null;
   functions: { done: number; total: number } | null;
   updated: string | null;
+  image: string | null;
 }
 
 type Sort = "progress" | "name" | "updated";
@@ -86,12 +88,35 @@ export function ProjectList({ rows }: { rows: ProjectRow[] }) {
               href={`/${r.owner}/${r.repo}`}
               className="grid gap-x-6 gap-y-2 px-5 py-4 transition-colors hover:bg-surface-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_9rem] sm:items-center"
             >
-              <div className="min-w-0">
-                <div className="truncate font-medium">{r.name}</div>
-                <div className="truncate text-xs text-ink-3">
-                  {r.owner}/{r.repo}
-                  {r.platformName ? ` · ${r.platformName}` : ""}
-                  {r.version ? ` · ${r.version}` : ""}
+              <div className="flex min-w-0 items-center gap-3.5">
+                {r.image ? (
+                  <ExternalImage
+                    src={r.image}
+                    className="size-11 shrink-0 rounded-lg border border-line object-cover"
+                    fallback={
+                      <div
+                        className="grid size-11 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-sm font-semibold text-ink-3"
+                        aria-hidden
+                      >
+                        {r.name.slice(0, 1)}
+                      </div>
+                    }
+                  />
+                ) : (
+                  <div
+                    className="grid size-11 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-sm font-semibold text-ink-3"
+                    aria-hidden
+                  >
+                    {r.name.slice(0, 1)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{r.name}</div>
+                  <div className="truncate text-xs text-ink-3">
+                    {r.owner}/{r.repo}
+                    {r.platformName ? ` · ${r.platformName}` : ""}
+                    {r.version ? ` · ${r.version}` : ""}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">

@@ -23,6 +23,7 @@ export default async function Home() {
     codePercent: p.measures ? Number(p.measures.matched_code_percent) : null,
     functions: p.measures ? { done: Number(p.measures.matched_functions), total: Number(p.measures.total_functions) } : null,
     updated: p.commit_timestamp ? new Date(p.commit_timestamp).toISOString() : null,
+    image: p.image_url,
   }));
   return (
     <div>

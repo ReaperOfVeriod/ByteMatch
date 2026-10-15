@@ -9,6 +9,7 @@ import { platformName } from "@/lib/platforms";
 import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
+import { ExternalImage } from "./external-image";
 import { ChevronRight } from "./ui/icons";
 import { HistoryChart, type HistoryPoint } from "./history-chart";
 import { ProgressBar } from "./progress-bar";
@@ -128,55 +129,60 @@ export async function ProjectView({ owner, repo, version }: { owner: string; rep
   return (
     <div className="mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)] gap-5">
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
-      <section className="panel p-6 sm:p-7">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-            {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
-          </h1>
-          {r.versions.length > 1 ? (
-            <nav className="segmented ml-auto flex-wrap" aria-label="Game version">
-              {r.versions.map((v) => (
-                <Link
-                  key={v}
-                  href={`${base}/${encodeURIComponent(v)}`}
-                  aria-current={v === r.version ? "page" : undefined}
-                  className={`rounded-[0.45rem] px-2.5 py-1 font-mono text-xs ${v === r.version ? "bg-surface-3 text-ink" : "text-ink-3 hover:text-ink"}`}
-                >
-                  {v}
-                </Link>
-              ))}
-            </nav>
-          ) : null}
-        </div>
-        <div className="mt-1 text-sm text-ink-3">
-          <a href={repoUrl(project)} className="hover:text-ink">
-            {project.owner}/{project.repo}
-          </a>
-          {project.platform ? ` · ${platformName(project.platform)}` : ""} · {r.version}
-        </div>
-
-        <div className="mt-6">
-          <div className="mb-1.5 text-sm text-ink-2">
-            Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
+      <section className="panel overflow-hidden">
+        {project.imageUrl ? (
+          <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-64 w-full border-b border-line object-cover" />
+        ) : null}
+        <div className="p-6 sm:p-7">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
+            </h1>
+            {r.versions.length > 1 ? (
+              <nav className="segmented ml-auto flex-wrap" aria-label="Game version">
+                {r.versions.map((v) => (
+                  <Link
+                    key={v}
+                    href={`${base}/${encodeURIComponent(v)}`}
+                    aria-current={v === r.version ? "page" : undefined}
+                    className={`rounded-[0.45rem] px-2.5 py-1 font-mono text-xs ${v === r.version ? "bg-surface-3 text-ink" : "text-ink-3 hover:text-ink"}`}
+                  >
+                    {v}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
           </div>
-          <div
-            className="h-3 w-full overflow-hidden rounded-full bg-track"
-            role="meter"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Number(m.matched_code_percent.toFixed(2))}
-            aria-label="Code matched"
-          >
-            <div className="h-full rounded-full bg-done" style={{ width: `${Math.min(100, m.matched_code_percent)}%` }} />
+          <div className="mt-1 text-sm text-ink-3">
+            <a href={repoUrl(project)} className="hover:text-ink">
+              {project.owner}/{project.repo}
+            </a>
+            {project.platform ? ` · ${platformName(project.platform)}` : ""} · {r.version}
           </div>
-        </div>
 
-        <div className="mt-5 truncate border-t border-line pt-4 font-mono text-[13px] text-ink-2">
-          <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
-            {row.commitSha.slice(0, 7)}
-          </a>{" "}
-          <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
-          <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+          <div className="mt-6">
+            <div className="mb-1.5 text-sm text-ink-2">
+              Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
+            </div>
+            <div
+              className="h-3 w-full overflow-hidden rounded-full bg-track"
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Number(m.matched_code_percent.toFixed(2))}
+              aria-label="Code matched"
+            >
+              <div className="h-full rounded-full bg-done" style={{ width: `${Math.min(100, m.matched_code_percent)}%` }} />
+            </div>
+          </div>
+
+          <div className="mt-5 truncate border-t border-line pt-4 font-mono text-[13px] text-ink-2">
+            <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
+              {row.commitSha.slice(0, 7)}
+            </a>{" "}
+            <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
+            <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+          </div>
         </div>
       </section>
 

@@ -5,7 +5,8 @@ import { findProject, projectVersions } from "@/db/store";
 import { config } from "@/lib/config";
 import { PLATFORMS } from "@/lib/platforms";
 import { listTokens } from "@/lib/tokens";
-import { deleteToken, newToken, runAction, updateProject } from "../../actions";
+import { deleteToken, newToken, runAction, setImageUrl, updateProject } from "../../actions";
+import { ImageForm } from "../../image-form";
 import { Select } from "@/components/ui/select";
 import { ChevronRight } from "@/components/ui/icons";
 import { ActionButtons, ActionForm, inputClass } from "../../forms";
@@ -171,6 +172,10 @@ export default async function ManageProject({ params, searchParams }: Params) {
             Enabled (public page, badges and ingestion)
           </label>
         </ActionForm>
+      </Card>
+
+      <Card title="Image">
+        <ImageForm current={project.imageUrl} name={project.name} action={setImageUrl.bind(null, project.owner, project.repo)} />
       </Card>
 
       <Card title="Upload tokens">
