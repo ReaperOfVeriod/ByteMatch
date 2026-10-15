@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanName, cleanYear, groupFranchises, groupGames, slugify } from "./games";
+import { cleanName, cleanYear, gameKey, groupFranchises, groupGames, resolveKey, similarKeys, slugify } from "./games";
 
 const p = (game: string | null, franchise: string | null = null, releaseYear: number | null = null, platform: string | null = "ps2") => ({
   game,
@@ -53,5 +53,63 @@ describe("games", () => {
     expect(franchises).toHaveLength(1);
     expect(franchises[0].slug).toBe("ratchet-and-clank");
     expect(franchises[0].games.map((g) => g.title)).toEqual(["Ratchet & Clank", "Going Commando"]);
+  });
+
+  it("keys names so spellings of one game agree", () => {
+    const same = [
+      ["Ratchet & Clank", "Ratchet and Clank"],
+      ["The Legend of Zelda: Ocarina of Time", "Legend of Zelda - Ocarina of Time"],
+      ["Final Fantasy VII", "final fantasy 7"],
+      ["Super Mario 64 (USA)", "Super Mario 64"],
+      ["Ratchet & Clank [PAL]", "Ratchet and Clank PAL"],
+      ["Pokémon Colosseum", "Pokemon Colosseum"],
+      ["Kirby's Air Ride", "Kirbys Air Ride"],
+    ];
+    for (const [a, b] of same) expect(gameKey(a), `${a} / ${b}`).toBe(gameKey(b));
+  });
+
+  it("keeps different games apart", () => {
+    const different = [
+      ["Ratchet & Clank", "Ratchet & Clank 2"],
+      ["Mega Man X", "Mega Man 10"],
+      ["Super Mario Bros.", "Super Mario Bros. 3"],
+      ["Paper Mario", "Paper Mario: The Thousand-Year Door"],
+    ];
+    for (const [a, b] of different) expect(gameKey(a), `${a} / ${b}`).not.toBe(gameKey(b));
+  });
+
+  it("flags likely duplicates, but never sequels", () => {
+    const k = (a: string, b: string) => similarKeys(gameKey(a), gameKey(b));
+    expect(k("Super Mario Sunshin", "Super Mario Sunshine")).toBe(true);
+    expect(k("Zelda: Ocarina of Time", "The Legend of Zelda: Ocarina of Time")).toBe(true);
+    expect(k("Ratchet & Clank", "Ratchet & Clank 2")).toBe(false);
+    expect(k("Final Fantasy VII", "Final Fantasy VIII")).toBe(false);
+    expect(k("Super Mario Sunshine", "Super Smash Bros. Melee")).toBe(false);
+    expect(k("Paper Mario", "Paper Mario: The Thousand-Year Door")).toBe(false);
+  });
+
+  it("follows aliases, so admins can merge names that mean one game", () => {
+    const aliases = new Map([[gameKey("Ratchet & Clank 2"), gameKey("Ratchet & Clank: Going Commando")]]);
+    expect(resolveKey("Ratchet and Clank 2", aliases)).toBe(gameKey("Ratchet & Clank: Going Commando"));
+    const games = groupGames(
+      [p("Ratchet & Clank: Going Commando", null, 2003), p("Ratchet & Clank 2", null, 2003), p("Ratchet & Clank 2", null, 2003)],
+      {
+        games: aliases,
+      },
+    );
+    expect(games).toHaveLength(1);
+    // The title is the spelling most projects use, and the URL follows it.
+    expect(games[0].title).toBe("Ratchet & Clank 2");
+    expect(games[0].slug).toBe("ratchet-and-clank-2");
+    // A loop of aliases doesn't hang.
+    expect(
+      resolveKey(
+        "a",
+        new Map([
+          ["a", "b"],
+          ["b", "a"],
+        ]),
+      ),
+    ).toMatch(/^[ab]$/);
   });
 });
