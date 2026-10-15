@@ -128,11 +128,21 @@ them: it never downloads or stores images, so host them somewhere public and sta
 repository, a GitHub release, an image host). Visitors' browsers load them directly, without a
 referrer. If a link stops working, the page simply shows no image.
 
+## 6. Game and franchise
+
+Under **Settings**, name the **game** the project decompiles, its **franchise** and its release
+**year**. Projects naming the same game share a page at `/games/<game>` (regional builds and
+parallel efforts side by side, with one progress chart), and games naming the same franchise are
+listed together at `/franchises/<franchise>`. Spelling differences in case, `&`/`and` and
+punctuation don't matter, and the form suggests names other projects already use. Leave them empty
+to keep the project out of the games pages; it stays in the main list either way.
+
 ## Manage page reference
 
 Signed-in admins of the repository can change:
 
 - display name, short name, platform, default version, default category, default branch;
+- game, franchise and release year;
 - artifact pattern, workflow restriction, split versions;
 - PR comments on or off, and whether the project is enabled;
 - upload tokens (create and revoke).
@@ -144,5 +154,6 @@ Actions:
   90 days by default).
 - **Import from decomp.dev**: copy history from decomp.dev (see the
   [migration guide](migrating-from-decomp-dev.md#4-keep-your-history)).
+- **Upload history**: add a saved history file to one version, and download what ByteMatch has.
 
 If the last ingest failed, the error is shown on this page.

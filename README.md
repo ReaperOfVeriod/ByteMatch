@@ -31,8 +31,11 @@ project switches by changing the domain and keeps its history with a one-click i
 - **Pull request comments** through a GitHub App: newly matched functions, regressions, measure
   changes. Webhooks also make new runs show up at once.
 - **Upload API** with per-project tokens, for CI outside GitHub Actions.
-- **Import from decomp.dev**: copy a project's history and latest report while decomp.dev still
-  serves them.
+- **History you keep**: import it from decomp.dev while it still serves it, upload saved history
+  files, and download any project's history in the same format.
+- **Games, franchises and activity**: projects naming the same game share a page with a combined
+  progress chart, games group into franchises, and an activity feed shows milestones (first past
+  50%, 90%, a full match) and the week's biggest gains.
 - **Self-hostable**: Next.js, PostgreSQL and a background worker. No Redis. Runs with pm2 or
   containers.
 
