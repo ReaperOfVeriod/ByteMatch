@@ -50,6 +50,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/games" className={navLink}>
                 Games
               </Link>
+              <Link href="/activity" className={navLink}>
+                Activity
+              </Link>
               <Link href="/docs" className={navLink}>
                 Docs
               </Link>
@@ -105,6 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 links={[
                   { href: "/", label: "Projects" },
                   { href: "/games", label: "Games" },
+                  { href: "/activity", label: "Activity" },
                   { href: "/docs", label: "Docs" },
                   { href: "/manage/new", label: "Submit a project" },
                   ...(session ? [{ href: "/manage", label: "Manage" }] : []),

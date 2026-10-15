@@ -8,6 +8,7 @@ const RESERVED = new Set([
   "docs",
   "games",
   "franchises",
+  "activity",
   "admin",
   "_next",
   "healthz",

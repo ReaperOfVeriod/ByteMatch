@@ -258,6 +258,107 @@ export async function projectIndex() {
   return [...rows];
 }
 
+/** Code-matched thresholds that count as milestones on the activity page. */
+export const MILESTONES = [10, 25, 50, 75, 90, 95, 99, 100];
+
+/** Public projects and the version their page shows (the default, else the most recently updated). */
+const shownVersions = dsql`
+  select p.id, p.owner, p.repo, p.name, p.icon_url,
+         coalesce(p.default_version, (
+           select version from ${reports} x where x.project_id = p.id order by commit_timestamp desc limit 1)) as version
+  from ${projects} p
+  where p.enabled
+    and (p.last_error is null
+         or (exists (select 1 from ${reports} e where e.project_id = p.id) and p.last_error !~* ${ACCESS_ERROR_PATTERN}))`;
+
+export type Milestone = {
+  owner: string;
+  repo: string;
+  name: string;
+  icon_url: string | null;
+  version: string;
+  threshold: number;
+  reached: Date;
+  commit_sha: string;
+  commit_message: string | null;
+};
+
+/**
+ * The first commit at which each project's shown version reached each threshold, newest first.
+ * A threshold counts only if the project was below it before (a project whose history starts at
+ * 60% did not "reach 50%" on its first report), and a commit that crosses several shows the highest.
+ */
+export async function milestones(limit = 60): Promise<Milestone[]> {
+  const rows = await db().execute<Milestone & { reached: string }>(dsql`
+    with pv as (${shownVersions}),
+    h as (
+      select pv.id, r.commit_timestamp as ts, r.commit_sha as sha, r.commit_message as msg,
+             (r.measures->>'matched_code_percent')::float8 as pct
+      from pv join ${reports} r on r.project_id = pv.id and r.version = pv.version
+    ),
+    firsts as (
+      select h.id, t.t as threshold, min(h.ts) filter (where h.pct >= t.t) as reached, min(h.ts) as first_ts
+      from h cross join unnest(${dsql.raw(`array[${MILESTONES.join(",")}]::float8[]`)}) as t(t)
+      group by h.id, t.t
+    )
+    select pv.owner, pv.repo, pv.name, pv.icon_url, pv.version, f.threshold, f.reached, c.sha as commit_sha, c.msg as commit_message
+    from firsts f
+    join pv on pv.id = f.id
+    join lateral (select sha, msg from h where h.id = f.id and h.ts = f.reached limit 1) c on true
+    where f.reached is not null and f.reached > f.first_ts
+    order by f.reached desc, f.threshold desc
+    limit ${limit * 3}`);
+  const seen = new Set<string>();
+  const out: Milestone[] = [];
+  for (const r of rows) {
+    const key = `${r.owner}/${r.repo}@${r.commit_sha}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...r, threshold: Number(r.threshold), reached: new Date(r.reached) });
+  }
+  return out.slice(0, limit);
+}
+
+export type Mover = {
+  owner: string;
+  repo: string;
+  name: string;
+  icon_url: string | null;
+  version: string;
+  pct: number;
+  gain: number;
+  functions_gained: number;
+  commits: number;
+};
+
+/** Projects that gained the most matched code over the last DAYS days (their shown version). */
+export async function movers(days: number, limit = 8): Promise<Mover[]> {
+  const rows = await db().execute<Mover>(dsql`
+    with pv as (${shownVersions})
+    select pv.owner, pv.repo, pv.name, pv.icon_url, pv.version,
+           (n.measures->>'matched_code_percent')::float8 as pct,
+           (n.measures->>'matched_code_percent')::float8 - (b.measures->>'matched_code_percent')::float8 as gain,
+           (n.measures->>'matched_functions')::int - (b.measures->>'matched_functions')::int as functions_gained,
+           (select count(*) from ${reports} c
+             where c.project_id = pv.id and c.version = pv.version
+               and c.commit_timestamp > now() - make_interval(days => ${days}))::int as commits
+    from pv
+    join lateral (
+      select measures, commit_timestamp from ${reports} r where r.project_id = pv.id and r.version = pv.version
+      order by commit_timestamp desc, id desc limit 1) n on n.commit_timestamp > now() - make_interval(days => ${days})
+    join lateral (
+      select measures from ${reports} o where o.project_id = pv.id and o.version = pv.version
+      order by (o.commit_timestamp <= now() - make_interval(days => ${days})) desc,
+               case when o.commit_timestamp <= now() - make_interval(days => ${days}) then o.commit_timestamp end desc nulls last,
+               o.commit_timestamp asc
+      limit 1) b on true
+    order by gain desc nulls last
+    limit ${limit}`);
+  return [...rows]
+    .map((r) => ({ ...r, pct: Number(r.pct), gain: Number(r.gain), functions_gained: Number(r.functions_gained) }))
+    .filter((r) => r.gain >= 0.01 || r.functions_gained > 0);
+}
+
 /** Drops full reports older than DAYS, keeping each version's latest; measures stay. */
 export async function pruneReports(days: number): Promise<number> {
   if (days <= 0) return 0;
