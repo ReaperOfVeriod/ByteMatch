@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { StyleSwatch, ThemeSwatch } from "@/components/theme-swatch";
 import { Check, Plus } from "@/components/ui/icons";
 import { useTheme } from "@/components/use-theme";
@@ -87,6 +87,46 @@ export function ThemeStudio() {
     });
   }
 
+  /** Read a shared theme's text and add it, or say what's wrong with it. */
+  function importText(text: string) {
+    const r = parseTheme(text);
+    if (r.ok) add(r.theme, r.from);
+    else if (!/^\s*(bytematch|albedo)-theme:/.test(text)) {
+      setNote({
+        tone: "bad",
+        text: "Your clipboard doesn't hold a theme. Copy the whole line someone shared (it starts with bytematch-theme:), then press Paste theme again.",
+      });
+    } else setNote({ tone: "bad", text: r.error });
+  }
+
+  async function pasteFromClipboard() {
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      return setNote({
+        tone: "bad",
+        text: "Your browser didn't let the page read the clipboard. Press Ctrl+V (⌘V on a Mac) anywhere on this page instead.",
+      });
+    }
+    importText(text);
+  }
+
+  // Pasting a theme anywhere on the page imports it, unless you're typing in a field.
+  const onThemePaste = useEffectEvent((text: string) => importText(text));
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (editing || target?.closest("input, textarea, [contenteditable]")) return;
+      const text = e.clipboardData?.getData("text") ?? "";
+      if (!/^\s*(bytematch|albedo)-theme:/.test(text)) return;
+      e.preventDefault();
+      onThemePaste(text);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [editing]);
+
   function save() {
     if (!draft) return;
     const name = draft.name.trim().replace(/\s+/g, " ");
@@ -117,7 +157,7 @@ export function ThemeStudio() {
   async function copy(theme: Theme) {
     try {
       await navigator.clipboard.writeText(serializeTheme(theme));
-      setNote({ tone: "good", text: `Copied “${theme.name}”. Send that line to anyone; they paste it under Import a theme.` });
+      setNote({ tone: "good", text: `Copied “${theme.name}”. Send that line to anyone; they press Paste theme on this page.` });
     } catch {
       setNote({ tone: "bad", text: "This browser didn't allow copying. Try again, or use a different browser." });
     }
@@ -185,7 +225,16 @@ export function ThemeStudio() {
             <h2 id="yours" className={sectionTitle}>
               Your themes
             </h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost h-8 px-3"
+                disabled={editing}
+                onClick={pasteFromClipboard}
+                title="Add a theme someone shared with you, from your clipboard (or press Ctrl+V / ⌘V on this page)"
+              >
+                Paste theme
+              </button>
               <button
                 type="button"
                 className="btn btn-ghost h-8 px-3"
@@ -213,8 +262,6 @@ export function ThemeStudio() {
               </button>
             </div>
           </div>
-
-          <Importer disabled={editing} onImport={add} />
 
           {note ? <NoteLine note={note} onEdit={edit} /> : null}
 
@@ -263,7 +310,7 @@ export function ThemeStudio() {
             </ul>
           ) : (
             <p className="mt-4 text-sm text-ink-3">
-              None saved yet. Import one above, or press New theme to start from what you&apos;re using now.
+              None saved yet. Press New theme to start from what you&apos;re using now, or Paste theme to add one someone shared with you.
             </p>
           )}
         </section>
@@ -292,79 +339,11 @@ function uniqueName(name: string, list: Theme[]) {
   for (let i = 2; ; i++) if (!taken.has(`${name} ${i}`)) return `${name} ${i}`;
 }
 
-/**
- * Paste a shared theme. It is read as you paste: a valid one shows what it is and a button to add
- * it; anything else says what's wrong, right under the field.
- */
-function Importer({ disabled, onImport }: { disabled: boolean; onImport: (t: Theme, from: "bytematch" | "albedo") => void }) {
-  const [text, setText] = useState("");
-  const parsed = text.trim() ? parseTheme(text) : null;
-  const add = () => {
-    if (!parsed?.ok) return;
-    onImport(parsed.theme, parsed.from);
-    setText("");
-  };
-  const sid = parsed?.ok ? styleId(parsed.theme.style) : null;
-  return (
-    <div className="rounded-lg border border-dashed border-line-strong p-4">
-      <label htmlFor="import" className="block text-sm font-medium">
-        Import a theme
-      </label>
-      <p id="import-hint" className="mt-0.5 mb-2.5 text-xs text-ink-3">
-        Paste the line someone shared with you. It starts with <code className="font-mono">bytematch-theme:</code>; themes copied from
-        Albedo (<code className="font-mono">albedo-theme:</code>) work too.
-      </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id="import"
-          className={`field font-mono text-xs ${parsed && !parsed.ok ? "border-bad" : ""}`}
-          placeholder="Paste a theme here"
-          value={text}
-          disabled={disabled}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          spellCheck={false}
-          autoComplete="off"
-          aria-describedby="import-hint import-result"
-          aria-invalid={parsed ? !parsed.ok : undefined}
-        />
-        {text ? (
-          <button type="button" className="btn btn-ghost shrink-0" onClick={() => setText("")}>
-            Clear
-          </button>
-        ) : null}
-      </div>
-      <div id="import-result" aria-live="polite">
-        {disabled ? <p className="mt-2 text-xs text-ink-3">Finish or cancel the theme you&apos;re editing to import another.</p> : null}
-        {parsed && !parsed.ok ? <p className="mt-2 text-sm text-bad">{parsed.error}</p> : null}
-        {parsed?.ok ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-surface-2 p-2.5">
-            <ThemeSwatch palette={parsed.theme.palette} className="h-9 w-14" />
-            <span className="min-w-0 flex-1 text-sm">
-              <span className="block truncate font-medium">{parsed.theme.name}</span>
-              <span className="block text-xs text-ink-3">
-                {parsed.from === "albedo"
-                  ? "An Albedo theme: its colours, with ByteMatch's progress colours and the Classic layout."
-                  : sid
-                    ? `${STYLES[sid].name} layout`
-                    : `${parsed.theme.style.layout === "directory" ? "Directory" : "Classic"} layout, adjusted`}
-              </span>
-            </span>
-            <button type="button" className="btn btn-primary h-9 px-4" onClick={add}>
-              Add and use
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function NoteLine({ note, onEdit }: { note: Note; onEdit: (t: Theme) => void }) {
   return (
     <p
       role="status"
-      className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${note.tone === "good" ? "text-good" : "text-bad"}`}
+      className={`mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${note.tone === "good" ? "text-good" : "text-bad"}`}
     >
       {note.tone === "good" ? <Check size={14} /> : null}
       <span>{note.text}</span>

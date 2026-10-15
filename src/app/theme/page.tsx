@@ -12,7 +12,7 @@ export default function ThemePage() {
         <h1 className="text-3xl font-semibold tracking-tight">Theme</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
           Pick colours and a layout separately, or save both together as your own theme. Your choice is remembered in this browser. To share
-          a theme, copy it as one line of text; to use someone else&apos;s, paste it under Import a theme.
+          a theme, copy it as one line of text; to use someone else&apos;s, copy it and press Paste theme.
         </p>
       </div>
       <ThemeStudio />

@@ -183,10 +183,10 @@ neutrals and accent, and `success`, `danger` and `warn` become `good`, `bad` and
 slots come from Slate. Saved themes and the cookie are checked again each time they are read, so a
 hand-edited value can only ever produce hex colours and known style words.
 
-On `/theme`, a pasted theme is read as it is pasted. A valid one shows its name, colours and layout
-with an **Add and use** button, and an invalid one says what is wrong under the field. Adding it
-saves and switches straight away, and the note that follows offers **Edit it** and **Undo**. A name
-already in use gets a number, and the note says so.
+On `/theme`, **Paste theme** reads the clipboard; pressing Ctrl+V (⌘V) anywhere on the page does
+the same, unless a field has focus. A valid theme is saved and switched to straight away, and the
+note that follows offers **Edit it** and **Undo**. A name already in use gets a number, and the note
+says so. Anything else gets a note saying what is wrong.
 
 ## Adding to the interface
 
