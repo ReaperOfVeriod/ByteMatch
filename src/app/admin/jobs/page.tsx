@@ -2,8 +2,7 @@ import { redact } from "@/lib/errors";
 import { health } from "@/lib/health";
 import { discardJob, retryJob } from "../actions";
 import { ActionButton, ConfirmButton } from "../ui";
-
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+import { LocalTime } from "@/components/local-time";
 
 function errorText(output: unknown): string {
   if (!output || typeof output !== "object") return "";
@@ -61,7 +60,9 @@ export default async function AdminJobs() {
                   <span className="truncate font-mono text-xs text-ink-3">{JSON.stringify(j.data)}</span>
                 </div>
                 <div className="truncate font-mono text-xs text-bad">{errorText(j.output)}</div>
-                <div className="text-xs text-ink-3">{fmtDate.format(new Date(j.completedOn ?? j.createdOn))}</div>
+                <div className="text-xs text-ink-3">
+                  <LocalTime value={j.completedOn ?? j.createdOn} />
+                </div>
               </div>
               <div className="flex gap-1">
                 <ActionButton action={retryJob} fields={{ name: j.name, id: j.id }} label="Retry" />

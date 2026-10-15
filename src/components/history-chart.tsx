@@ -37,7 +37,7 @@ function useWidth(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref]);
   return w;
 }
-const fmtDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const fmtMonth = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 /** Axis dates: days for spans under ~5 months, months beyond that. */

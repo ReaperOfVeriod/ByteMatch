@@ -20,9 +20,9 @@ import { HistoryChart, type HistoryPoint } from "./history-chart";
 import { ProgressBar } from "./progress-bar";
 import { UnitMap, type MapUnit } from "./unit-map";
 import { UnitTable, type UnitRow } from "./unit-table";
+import { LocalTime } from "@/components/local-time";
 
 const fmt = new Intl.NumberFormat("en-US");
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
@@ -61,8 +61,6 @@ function More({ title, children, aside }: { title: string; children: React.React
   );
 }
 
-const fmtDateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
-
 function Syncing({ project }: { project: Project }) {
   return (
     <div className="mx-auto max-w-2xl">
@@ -83,7 +81,9 @@ function Syncing({ project }: { project: Project }) {
         {project.lastError ? (
           <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">{publicError(project.lastError)}</p>
         ) : project.lastPolledAt ? (
-          <p className="mt-4 text-sm text-ink-3">Last checked {fmtDateTime.format(project.lastPolledAt)}: no report artifacts found yet.</p>
+          <p className="mt-4 text-sm text-ink-3">
+            Last checked <LocalTime value={project.lastPolledAt} />: no report artifacts found yet.
+          </p>
         ) : null}
       </section>
     </div>
@@ -361,7 +361,10 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                     {row.commitSha.slice(0, 7)}
                   </a>{" "}
                   <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
-                  <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+                  <span className="text-ink-3">
+                    {" · "}
+                    <LocalTime value={row.commitTimestamp} />
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   {older ? (
@@ -500,13 +503,14 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                     <Link
                       href={commitHref(h.commitSha)}
                       scroll={false}
-                      title={`${fmtDate.format(h.commitTimestamp)} · ${h.measures.matched_code_percent.toFixed(2)}%`}
+                      title={`${h.measures.matched_code_percent.toFixed(2)}% code matched`}
                       className={`flex items-center gap-2 rounded-lg px-1 py-1.5 text-[13px] transition-colors hover:bg-surface-2 ${here ? "bg-surface-2" : ""}`}
                     >
                       <span className="shrink-0 font-mono text-xs text-ink-3">{h.commitSha.slice(0, 7)}</span>
-                      <span className="min-w-0 truncate text-ink-2">{h.commitMessage?.split("\n")[0] ?? ""}</span>
+                      <span className="min-w-0 flex-1 truncate text-ink-2">{h.commitMessage?.split("\n")[0] ?? ""}</span>
+                      <LocalTime value={h.commitTimestamp} style="ago" className="shrink-0 text-xs text-ink-3" />
                       {Math.abs(dCode) >= 0.005 ? (
-                        <span className={`ml-auto shrink-0 font-mono text-xs ${dCode > 0 ? "text-good" : "text-bad"}`}>
+                        <span className={`shrink-0 font-mono text-xs ${dCode > 0 ? "text-good" : "text-bad"}`}>
                           {dCode > 0 ? "+" : "−"}
                           {Math.abs(dCode).toFixed(2)}
                         </span>

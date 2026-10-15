@@ -11,7 +11,7 @@ export interface CompareSeries {
   points: [number, number][];
 }
 
-const fmtDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtMonth = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 
 function useWidth(ref: React.RefObject<HTMLDivElement | null>) {

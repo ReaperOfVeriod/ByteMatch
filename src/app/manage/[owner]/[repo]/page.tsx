@@ -11,12 +11,11 @@ import { ImageForm } from "../../image-form";
 import { Select } from "@/components/ui/select";
 import { ChevronRight } from "@/components/ui/icons";
 import { ActionButtons, ActionForm, inputClass } from "../../forms";
+import { LocalTime } from "@/components/local-time";
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ owner: string; repo: string }>; searchParams: Promise<{ added?: string }> };
-
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -65,7 +64,12 @@ export default async function ManageProject({ params, searchParams }: Params) {
       <p className="mt-1 text-sm text-ink-3">
         {project.owner}/{project.repo} ·{" "}
         {versions.length ? `${versions.length} version${versions.length > 1 ? "s" : ""}` : "no reports yet"}
-        {project.lastPolledAt ? ` · checked ${fmtDate.format(project.lastPolledAt)}` : ""}
+        {project.lastPolledAt ? (
+          <>
+            {" · checked "}
+            <LocalTime value={project.lastPolledAt} />
+          </>
+        ) : null}
       </p>
       {added ? (
         <p className="mt-3 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
@@ -75,7 +79,14 @@ export default async function ManageProject({ params, searchParams }: Params) {
       ) : null}
       {project.lastError ? (
         <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
-          Last ingest failed{project.lastErrorAt ? ` (${fmtDate.format(project.lastErrorAt)})` : ""}: {redact(project.lastError)}
+          Last ingest failed
+          {project.lastErrorAt ? (
+            <>
+              {" ("}
+              <LocalTime value={project.lastErrorAt} />)
+            </>
+          ) : null}
+          : {redact(project.lastError)}
         </p>
       ) : null}
 
@@ -319,7 +330,15 @@ export default async function ManageProject({ params, searchParams }: Params) {
               <li key={t.id} className="flex items-center gap-3 py-2">
                 <span className="font-mono text-xs">{t.prefix}…</span>
                 <span>{t.name}</span>
-                <span className="text-xs text-ink-3">{t.lastUsedAt ? `used ${fmtDate.format(t.lastUsedAt)}` : "never used"}</span>
+                <span className="text-xs text-ink-3">
+                  {t.lastUsedAt ? (
+                    <>
+                      used <LocalTime value={t.lastUsedAt} />
+                    </>
+                  ) : (
+                    "never used"
+                  )}
+                </span>
                 <form action={deleteToken.bind(null, project.owner, project.repo)} className="ml-auto">
                   <input type="hidden" name="id" value={t.id} />
                   <button className="text-xs text-bad">Revoke</button>

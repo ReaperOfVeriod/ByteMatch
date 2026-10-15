@@ -6,8 +6,7 @@ import { listBlocked } from "@/lib/moderation";
 import { listAdmins } from "@/lib/roles";
 import { appointAdminAction, blockAccount, removeAdminAction, unblockAccount } from "../actions";
 import { ActionButton, AppointForm, BlockForm, ConfirmButton } from "../ui";
-
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
+import { LocalTime } from "@/components/local-time";
 
 export default async function AdminUsers() {
   const session = await currentSession();
@@ -53,7 +52,9 @@ export default async function AdminUsers() {
             <li key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
               <span className="font-medium">{a.login}</span>
               <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[11px] text-ink-2">admin</span>
-              <span className="text-xs text-ink-3">since {fmtDate.format(a.createdAt)}</span>
+              <span className="text-xs text-ink-3">
+                since <LocalTime value={a.createdAt} style="date" />
+              </span>
               {viewerIsOwner ? (
                 <span className="ml-auto">
                   <ConfirmButton action={removeAdminAction} fields={{ id: String(a.id) }} label="Remove" confirm="Remove admin" />
@@ -81,7 +82,9 @@ export default async function AdminUsers() {
               <li key={b.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
                 <span className="font-medium">{b.login}</span>
                 <span className="min-w-0 flex-1 truncate text-ink-3">{b.reason ?? "No reason given"}</span>
-                <span className="text-xs text-ink-3">{fmtDate.format(b.createdAt)}</span>
+                <span className="text-xs text-ink-3">
+                  <LocalTime value={b.createdAt} style="date" />
+                </span>
                 <ActionButton action={unblockAccount} fields={{ id: String(b.id) }} label="Unblock" />
               </li>
             ))}
@@ -110,8 +113,13 @@ export default async function AdminUsers() {
               ) : null}
               {isBlocked(u.login) ? <span className="rounded-full bg-bad/15 px-2 py-0.5 text-[11px] text-bad">blocked</span> : null}
               <span className="ml-auto text-xs text-ink-3">
-                {u.projects} project{u.projects === 1 ? "" : "s"} · joined {fmtDate.format(new Date(u.created_at))}
-                {u.last_seen ? ` · last signed in ${fmtDate.format(new Date(u.last_seen))}` : ""}
+                {u.projects} project{u.projects === 1 ? "" : "s"} · joined <LocalTime value={u.created_at} style="date" />
+                {u.last_seen ? (
+                  <>
+                    {" · last signed in "}
+                    <LocalTime value={u.last_seen} />
+                  </>
+                ) : null}
               </span>
             </li>
           ))}

@@ -3,6 +3,7 @@ import { ExternalImage } from "@/components/external-image";
 import { milestones, movers, type Milestone } from "@/db/store";
 import { gameRows } from "@/lib/game-data";
 import { browseMetadata } from "@/lib/seo";
+import { LocalTime } from "@/components/local-time";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,6 @@ export function generateMetadata() {
 }
 
 const fmt = new Intl.NumberFormat("en-US");
-const fmtDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const fmtMonth = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
 
 function Icon({ src, name, size = "size-9" }: { src: string | null; name: string; size?: string }) {
@@ -102,9 +102,7 @@ export default async function Activity() {
                           {m.commit_message ? ` · ${m.commit_message.split("\n")[0]}` : ""}
                         </a>
                       </div>
-                      <time dateTime={m.reached.toISOString()} className="shrink-0 text-xs text-ink-3">
-                        {fmtDay.format(m.reached)}
-                      </time>
+                      <LocalTime value={m.reached} className="shrink-0 text-xs text-ink-3" />
                     </li>
                   ))}
                 </ul>
@@ -160,7 +158,7 @@ export default async function Activity() {
                         {r.platformName ? ` · ${r.platformName}` : ""}
                       </div>
                     </div>
-                    <span className="shrink-0 text-xs text-ink-3">{fmtDay.format(new Date(r.createdAt!))}</span>
+                    <LocalTime value={r.createdAt!} style="ago" className="shrink-0 text-xs text-ink-3" />
                   </li>
                 ))}
               </ul>

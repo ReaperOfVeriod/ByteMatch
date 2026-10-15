@@ -1,6 +1,5 @@
 import { recentAudit } from "@/lib/moderation";
-
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+import { LocalTime } from "@/components/local-time";
 
 export default async function AdminLog() {
   const rows = await recentAudit(200);
@@ -19,7 +18,9 @@ export default async function AdminLog() {
         <tbody className="divide-y divide-line">
           {rows.map((r) => (
             <tr key={r.id}>
-              <td className="px-5 py-2 whitespace-nowrap text-ink-3">{fmtDate.format(r.createdAt)}</td>
+              <td className="px-5 py-2 whitespace-nowrap text-ink-3">
+                <LocalTime value={r.createdAt} />
+              </td>
               <td className="px-3 py-2">{r.actorLogin}</td>
               <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
               <td className="px-3 py-2 font-mono text-xs">{r.target ?? ""}</td>

@@ -11,7 +11,7 @@ export interface PickableRepo {
   registered: string | null;
 }
 
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
+const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
 export function RepoPicker({ repos, action }: { repos: PickableRepo[]; action: (s: FormState, f: FormData) => Promise<FormState> }) {
   const [query, setQuery] = useState("");

@@ -7,9 +7,9 @@ import { redact } from "@/lib/errors";
 import { clearDiscord, clearIcon, clearImage, removeProject, resyncProject, toggleProject } from "../actions";
 import { projectStatus, STATUS_STYLE, type ProjectStatus } from "../status";
 import { ActionButton, ConfirmButton } from "../ui";
+import { LocalTime } from "@/components/local-time";
 
 const STATUSES: ("all" | ProjectStatus)[] = ["all", "healthy", "syncing", "erroring", "hidden", "disabled"];
-const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
 type Params = { searchParams: Promise<{ status?: string; q?: string }> };
 
@@ -85,7 +85,7 @@ export default async function AdminProjects({ searchParams }: Params) {
                   {p.owner}/{p.repo}
                 </a>
                 {" · "}submitted by {p.submitter ?? "unknown"} · {p.reports} reports · checked{" "}
-                {p.last_polled_at ? fmtDate.format(new Date(p.last_polled_at)) : "never"}
+                {p.last_polled_at ? <LocalTime value={p.last_polled_at} /> : "never"}
               </div>
               {p.last_error ? <div className="mt-1 truncate font-mono text-xs text-[#f0b429]">{redact(p.last_error)}</div> : null}
               {p.icon_url ? (
