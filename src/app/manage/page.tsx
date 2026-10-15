@@ -10,7 +10,7 @@ export const metadata = { title: "Manage" };
 
 export default async function Manage() {
   const session = await currentSession();
-  if (!session) redirect("/auth/login?next=/manage");
+  if (!session) redirect("/login?next=/manage");
   const list = await db()
     .select()
     .from(projects)
@@ -20,16 +20,16 @@ export default async function Manage() {
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Manage</h1>
-        <Link href="/manage/new" className="ml-auto h-9 rounded-md bg-accent px-4 text-sm leading-9 font-medium text-white">
-          Add project
+        <Link href="/manage/new" className="btn btn-primary ml-auto">
+          Submit a project
         </Link>
       </div>
       <p className="mt-1 text-sm text-ink-2">
         {session.admin
           ? "All projects (you are a site admin)."
-          : "Projects you added. To manage another, add it: you need admin rights on its repository."}
+          : "Projects you added. To manage another, submit it: you need admin rights on its repository."}
       </p>
-      <ul className="mt-6 divide-y divide-line rounded-lg border border-line bg-surface">
+      <ul className="panel mt-6 divide-y divide-line overflow-hidden">
         {list.map((p) => (
           <li key={p.id}>
             <Link href={`/manage/${p.owner}/${p.repo}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2">

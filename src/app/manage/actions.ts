@@ -20,7 +20,7 @@ export interface FormState {
 
 async function requireSession() {
   const session = await currentSession();
-  if (!session) redirect("/auth/login?next=/manage");
+  if (!session) redirect("/login?next=/manage");
   return session;
 }
 

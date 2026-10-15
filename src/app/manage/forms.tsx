@@ -5,7 +5,7 @@ import type { FormState } from "./actions";
 
 type Action = (state: FormState, form: FormData) => Promise<FormState>;
 
-export const inputClass = "h-9 w-full rounded-md border border-line bg-bg px-3 text-sm";
+export const inputClass = "field";
 
 function Result({ state }: { state: FormState }) {
   if (state.error) return <p className="text-sm text-bad">{state.error}</p>;
@@ -30,7 +30,7 @@ export function ActionForm({
     <form action={run} className={className ?? "grid gap-3"}>
       {children}
       <div className="flex items-center gap-3">
-        <button disabled={pending} className="h-9 rounded-md bg-accent px-4 text-sm font-medium text-white disabled:opacity-60">
+        <button disabled={pending} className="btn btn-primary">
           {pending ? "Working…" : submit}
         </button>
         <Result state={state} />
@@ -49,14 +49,7 @@ export function ActionButtons({ action, buttons }: { action: Action; buttons: { 
     <form action={run} className="grid gap-3">
       <div className="flex flex-wrap gap-2">
         {buttons.map((b) => (
-          <button
-            key={b.value}
-            name="action"
-            value={b.value}
-            disabled={pending}
-            title={b.hint}
-            className="h-9 rounded-md border border-line px-3 text-sm text-ink-2 hover:text-ink disabled:opacity-60"
-          >
+          <button key={b.value} name="action" value={b.value} disabled={pending} title={b.hint} className="btn btn-ghost">
             {b.label}
           </button>
         ))}

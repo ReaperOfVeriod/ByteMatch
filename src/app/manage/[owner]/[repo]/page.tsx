@@ -6,6 +6,8 @@ import { config } from "@/lib/config";
 import { PLATFORMS } from "@/lib/platforms";
 import { listTokens } from "@/lib/tokens";
 import { deleteToken, newToken, runAction, updateProject } from "../../actions";
+import { Select } from "@/components/ui/select";
+import { ChevronRight } from "@/components/ui/icons";
 import { ActionButtons, ActionForm, inputClass } from "../../forms";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +18,7 @@ const fmtDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyl
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-6 rounded-lg border border-line bg-surface p-5">
+    <section className="panel mt-5 p-6">
       <h2 className="mb-4 font-semibold">{title}</h2>
       {children}
     </section>
@@ -25,7 +27,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1 text-sm">
+    <label className="grid gap-1.5 text-sm">
       <span>
         {label} {hint ? <span className="text-xs text-ink-3">{hint}</span> : null}
       </span>
@@ -37,7 +39,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 export default async function ManageProject({ params, searchParams }: Params) {
   const { owner, repo } = await params;
   const session = await currentSession();
-  if (!session) redirect(`/auth/login?next=/manage/${owner}/${repo}`);
+  if (!session) redirect(`/login?next=/manage/${owner}/${repo}`);
   const project = await findProject(owner, repo);
   if (!project || !(await canManage(session, project))) notFound();
   const [versions, tokens, { added }] = await Promise.all([projectVersions(project.id), listTokens(project.id), searchParams]);
@@ -64,7 +66,7 @@ export default async function ManageProject({ params, searchParams }: Params) {
         </p>
       ) : null}
       {project.lastError ? (
-        <p className="mt-3 rounded-md border border-bad/40 px-3 py-2 text-sm text-bad">
+        <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
           Last ingest failed{project.lastErrorAt ? ` (${fmtDate.format(project.lastErrorAt)})` : ""}: {project.lastError}
         </p>
       ) : null}
@@ -107,24 +109,24 @@ export default async function ManageProject({ params, searchParams }: Params) {
               <input name="shortName" defaultValue={project.shortName ?? ""} className={inputClass} />
             </Field>
             <Field label="Platform">
-              <select name="platform" defaultValue={project.platform ?? ""} className={inputClass}>
+              <Select name="platform" defaultValue={project.platform ?? ""}>
                 <option value="">—</option>
                 {Object.entries(PLATFORMS).map(([id, name]) => (
                   <option key={id} value={id}>
                     {name} ({id})
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Default version">
-              <select name="defaultVersion" defaultValue={project.defaultVersion ?? ""} className={inputClass}>
+              <Select name="defaultVersion" defaultValue={project.defaultVersion ?? ""}>
                 <option value="">Most recently updated</option>
                 {versions.map((v) => (
                   <option key={v.version} value={v.version}>
                     {v.version}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Default branch" hint="runs on this branch are tracked">
               <input name="defaultBranch" defaultValue={project.defaultBranch} className={inputClass} />
@@ -136,8 +138,11 @@ export default async function ManageProject({ params, searchParams }: Params) {
           <Field label="Description" hint="optional">
             <input name="description" defaultValue={project.description ?? ""} className={inputClass} />
           </Field>
-          <details className="text-sm">
-            <summary className="cursor-pointer text-ink-2">Advanced</summary>
+          <details className="group rounded-xl border border-line bg-surface-2/50 px-4 py-3 text-sm">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-ink-2 select-none hover:text-ink [&::-webkit-details-marker]:hidden">
+              <ChevronRight size={13} className="text-ink-3 transition-transform duration-200 group-open:rotate-90" />
+              Advanced
+            </summary>
             <div className="mt-3 grid gap-3">
               <Field label="Artifact name pattern" hint="regex; the version group names the game version">
                 <input name="artifactPattern" defaultValue={project.artifactPattern} className={`${inputClass} font-mono`} />
@@ -146,16 +151,23 @@ export default async function ManageProject({ params, searchParams }: Params) {
                 <input name="workflow" defaultValue={project.workflow ?? ""} className={inputClass} />
               </Field>
               <label className="flex items-center gap-2">
-                <input type="checkbox" name="splitVersions" defaultChecked={project.splitVersions} /> One report holds every version
-                (top-level categories are versions)
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--accent-strong)]"
+                  name="splitVersions"
+                  defaultChecked={project.splitVersions}
+                />{" "}
+                One report holds every version (top-level categories are versions)
               </label>
             </div>
           </details>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="prComments" defaultChecked={project.prComments} /> Comment on pull requests (needs the GitHub App)
+            <input type="checkbox" className="size-4 accent-[var(--accent-strong)]" name="prComments" defaultChecked={project.prComments} />{" "}
+            Comment on pull requests (needs the GitHub App)
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="enabled" defaultChecked={project.enabled} /> Enabled (public page, badges and ingestion)
+            <input type="checkbox" className="size-4 accent-[var(--accent-strong)]" name="enabled" defaultChecked={project.enabled} />{" "}
+            Enabled (public page, badges and ingestion)
           </label>
         </ActionForm>
       </Card>
