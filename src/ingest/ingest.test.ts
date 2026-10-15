@@ -7,12 +7,17 @@ import { reportFromZip, versionFromName } from "../github/artifacts";
 import { renderComment } from "../github/comments";
 import { parseReport } from "../report/parse";
 import { importFromDecompDev, versionNames } from "./decompdev";
-import { pollProject } from "./github";
+import { eq } from "drizzle-orm";
+import { db } from "../db/client";
+import { projects } from "../db/schema";
+import { ReportProblem } from "../lib/problems";
+import { latestProblem, pollProject } from "./github";
 
 const fixture = readFileSync(new URL("../../test/fixtures/report-v2.json", import.meta.url));
 
 /** Just enough of Octokit for the ingest paths: runs, artifacts and artifact downloads. */
-function fakeGitHub(runs: { id: number; sha: string; time: string; artifacts: { id: number; name: string; data: Uint8Array }[] }[]) {
+type FakeArtifact = { id: number; name: string; data?: Uint8Array; files?: Record<string, Uint8Array> };
+function fakeGitHub(runs: { id: number; sha: string; time: string; artifacts: FakeArtifact[] }[]) {
   const request = vi.fn(async (route: string, params: Record<string, unknown>) => {
     if (route === "GET /repos/{owner}/{repo}/actions/runs") {
       return {
@@ -32,11 +37,13 @@ function fakeGitHub(runs: { id: number; sha: string; time: string; artifacts: { 
     }
     if (route === "GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts") {
       const run = runs.find((r) => r.id === params.run_id)!;
-      return { data: { artifacts: run.artifacts.map((a) => ({ id: a.id, name: a.name, expired: false, size_in_bytes: a.data.length })) } };
+      return {
+        data: { artifacts: run.artifacts.map((a) => ({ id: a.id, name: a.name, expired: false, size_in_bytes: a.data?.length ?? 1 })) },
+      };
     }
     if (route === "GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}") {
       const a = runs.flatMap((r) => r.artifacts).find((x) => x.id === params.artifact_id)!;
-      return { data: zipSync({ "report.json": a.data }).buffer };
+      return { data: zipSync(a.files ?? { "report.json": a.data! }).buffer };
     }
     throw new Error(`unexpected ${route}`);
   });
@@ -61,6 +68,18 @@ describe("artifacts", () => {
       new Uint8Array([1]),
     );
     expect(() => reportFromZip(zipSync({ "a.txt": new Uint8Array([1]), "b.txt": new Uint8Array([2]) }))).toThrow(/none is report.json/);
+  });
+
+  it("says which files an artifact without a report holds", () => {
+    const zip = zipSync({ "build/GUNE5D/config.json": new Uint8Array([1]), "objdiff.json": new Uint8Array([2]) });
+    try {
+      reportFromZip(zip);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ReportProblem);
+      expect((e as ReportProblem).code).toBe("no-report-file");
+      expect((e as ReportProblem).detail.files).toEqual(["build/GUNE5D/config.json", "objdiff.json"]);
+    }
   });
 });
 
@@ -111,6 +130,55 @@ describe.skipIf(!TEST_DB)("ingest", () => {
     github.client = again;
     expect(await pollProject(p)).toEqual([]);
     expect(again.request.mock.calls.filter(([route]) => String(route).includes("artifacts"))).toHaveLength(0);
+  });
+
+  it("records a run without a report, reads the others, and skips it afterwards", async () => {
+    const p = await makeProject();
+    const broken = { "build/GUNE5D/config.json": new Uint8Array([1]), "objdiff.json": new Uint8Array([2]) };
+    const runs = [
+      { id: 3, sha: "ccc", time: "2026-10-03T00:00:00Z", artifacts: [{ id: 30, name: "GUNE5D_report", data: new Uint8Array(fixture) }] },
+      { id: 2, sha: "bbb", time: "2026-10-02T00:00:00Z", artifacts: [{ id: 20, name: "GUNE5D_report", files: broken }] },
+      { id: 1, sha: "aaa", time: "2026-10-01T00:00:00Z", artifacts: [{ id: 10, name: "GUNE5D_report", data: new Uint8Array(fixture) }] },
+    ];
+    github.client = fakeGitHub(runs);
+    const results = await pollProject(p);
+    expect(results.map((r) => [r.runId, r.stored, r.problems.length])).toEqual([
+      [1, ["GUNE5D"], 0],
+      [2, [], 1],
+      [3, ["GUNE5D"], 0],
+    ]);
+    // The newest run is fine, so there's nothing to tell the maintainers.
+    const [after] = await db().select().from(projects).where(eq(projects.id, p.id));
+    expect(after.lastError).toBeNull();
+    expect(await latestProblem(p.id)).toMatchObject({ runId: 2, artifact: "GUNE5D_report", code: "no-report-file" });
+
+    // The broken run is not downloaded again.
+    const again = fakeGitHub(runs);
+    github.client = again;
+    expect(await pollProject(p)).toEqual([]);
+    expect(again.request.mock.calls.filter(([route]) => String(route).includes("artifacts"))).toHaveLength(0);
+  });
+
+  it("tells the maintainers when the newest run has no report, without failing", async () => {
+    const p = await makeProject();
+    const runs = [
+      {
+        id: 2,
+        sha: "bbb",
+        time: "2026-10-02T00:00:00Z",
+        artifacts: [{ id: 20, name: "GUNE5D_report", files: { "a.txt": new Uint8Array([1]), "b.txt": new Uint8Array([2]) } }],
+      },
+      { id: 1, sha: "aaa", time: "2026-10-01T00:00:00Z", artifacts: [{ id: 10, name: "GUNE5D_report", data: new Uint8Array(fixture) }] },
+    ];
+    github.client = fakeGitHub(runs);
+    await pollProject(p);
+    const [after] = await db().select().from(projects).where(eq(projects.id, p.id));
+    expect(after.lastError).toMatch(/none is report.json/);
+    // Still true on the next poll, which downloads nothing.
+    github.client = fakeGitHub(runs);
+    await pollProject(p);
+    const [still] = await db().select().from(projects).where(eq(projects.id, p.id));
+    expect(still.lastError).toMatch(/none is report.json/);
   });
 
   it("imports decomp.dev history and its latest report", async () => {

@@ -223,6 +223,29 @@ export const settings = pgTable("settings", {
 });
 
 /**
+ * CI runs whose report artifact couldn't be used (no report in it, unreadable, too big). A finished
+ * run's artifacts never change, so polls skip these instead of failing on them every time; the
+ * manage page explains them and can clear them to try again.
+ */
+export const ingestProblems = pgTable(
+  "ingest_problems",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    runId: bigint("run_id", { mode: "number" }).notNull(),
+    commitSha: text("commit_sha").notNull(),
+    artifact: text("artifact").notNull(),
+    code: text("code").notNull(),
+    message: text("message").notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("ingest_problems_run_artifact_idx").on(t.projectId, t.runId, t.artifact)],
+);
+
+/**
  * Custom themes shared by code ("brave-otter-12"). Anyone may share one, without signing in; a theme
  * is identified by its content, so the same colours, style and name always get the same code, and
  * editing a theme gives it a new one.

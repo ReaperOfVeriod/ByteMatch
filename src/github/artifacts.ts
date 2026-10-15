@@ -1,4 +1,5 @@
 import { unzipSync } from "fflate";
+import { ReportProblem } from "../lib/problems";
 import type { Octokit } from "octokit";
 import { config } from "../lib/config";
 
@@ -147,17 +148,21 @@ export function reportFromZip(zip: Uint8Array): Uint8Array {
     filter: (f) => {
       if (f.name.endsWith("/")) return false;
       total += f.originalSize;
-      if (total > limit) throw new Error(`artifact unpacks to more than ${limit} bytes`);
+      if (total > limit) throw new ReportProblem("artifact-too-big", `artifact unpacks to more than ${limit} bytes`, { limit });
       return true;
     },
   });
   const names = Object.keys(files);
-  if (names.length === 0) throw new Error("artifact is empty");
+  if (names.length === 0) throw new ReportProblem("artifact-empty", "artifact is empty");
   const base = (n: string) => n.split("/").pop()!.toLowerCase();
   const pick =
     (names.length === 1 && names[0]) ||
     names.find((n) => ["report.json", "report.binpb", "report.pb"].includes(base(n))) ||
     (names.filter((n) => base(n).includes("report")).length === 1 ? names.find((n) => base(n).includes("report")) : undefined);
-  if (!pick) throw new Error(`artifact has several files and none is report.json: ${names.slice(0, 5).join(", ")}`);
+  if (!pick) {
+    throw new ReportProblem("no-report-file", `artifact has several files and none is report.json: ${names.slice(0, 5).join(", ")}`, {
+      files: names.slice(0, 20),
+    });
+  }
   return files[pick];
 }
