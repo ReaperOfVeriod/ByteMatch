@@ -82,6 +82,15 @@ export const projects = pgTable(
     iconUrl: text("icon_url"),
     /** The project's Discord invite (discord.gg / discord.com/invite), shown on its page. */
     discordUrl: text("discord_url"),
+    /**
+     * The game this project decompiles, as its maintainers name it ("Ratchet & Clank"). Projects
+     * naming the same game share a game page (see src/lib/games.ts); nothing else stores games.
+     */
+    game: text("game"),
+    /** The series the game belongs to ("Ratchet & Clank"), for the franchise pages. */
+    franchise: text("franchise"),
+    /** The game's original release year. */
+    releaseYear: integer("release_year"),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: created(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -110,7 +119,10 @@ export const reports = pgTable(
     commitSha: text("commit_sha").notNull(),
     commitMessage: text("commit_message"),
     commitTimestamp: timestamp("commit_timestamp", { withTimezone: true }).notNull(),
-    /** "artifact" (CI artifact), "upload" (upload API) or "import" (decomp.dev history). */
+    /**
+     * "artifact" (CI artifact), "upload" (upload API), "import" (decomp.dev history) or "history"
+     * (a history file the maintainers uploaded). The last two carry measures only.
+     */
     source: text("source").notNull(),
     runId: bigint("run_id", { mode: "number" }),
     measures: jsonb("measures").$type<Measures>().notNull(),

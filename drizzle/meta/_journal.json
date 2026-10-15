@@ -43,6 +43,13 @@
       "when": 1792035590619,
       "tag": "0005_project_icon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792040474072,
+      "tag": "0006_project_game",
+      "breakpoints": true
     }
   ]
 }
