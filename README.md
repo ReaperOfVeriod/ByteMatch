@@ -36,8 +36,9 @@ project switches by changing the domain and keeps its history with a one-click i
 - **Games, franchises and activity**: projects naming the same game share a page with a combined
   progress chart, games group into franchises, and an activity feed shows milestones (first past
   50%, 90%, a full match) and the week's biggest gains.
-- **Themes**: Slate by default, Light, Graphite and seven accent themes from the header, plus your
-  own from thirteen colours, shared as one line of text.
+- **Themes**: colours (Slate by default, Light, Graphite and seven accent themes) and layouts
+  (Classic, or the flat, card-based Directory), picked from the header, plus your own, shared as
+  one line of text.
 - **Self-hostable**: Next.js, PostgreSQL and a background worker. No Redis. Runs with pm2 or
   containers.
 

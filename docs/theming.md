@@ -9,23 +9,42 @@ and looks like a different site.
 
 ## Themes
 
-Visitors choose a theme from the palette button in the header, or make their own at `/theme`. The
-choice is kept in the browser (`localStorage`), not on the server. A script in `<head>` applies it
-before first paint, so the page never flashes the default first.
+A theme has two halves, chosen separately or saved together:
 
-Built-in themes:
+- **Colours**: a palette of thirteen colour slots (below).
+- **Style**: five structural slots: layout, corners, depth, spacing and font (see
+  [Style](#style)).
 
-| Theme    | Source                                                                  |
+Visitors pick colours and a layout from the palette button in the header, or make, import and share
+their own at `/theme`. The choice is kept in a cookie (`bytematch-theme`), so the server renders the
+right colours and layout from the first byte: no flash, and no script in `<head>`. Saved custom
+themes are larger and stay in the browser's `localStorage`.
+
+Built-in colours:
+
+| Colours  | Source                                                                  |
 | -------- | ----------------------------------------------------------------------- |
 | Slate    | The original ByteMatch colours, and the default                         |
 | Light    | The light theme proposed in PR #1                                       |
 | Graphite | The dark theme proposed in PR #1                                        |
 | Orange … | Orange, Green, Teal, Purple, Red, Pink and Mono, after Albedo's presets |
 
+Built-in styles:
+
+| Style     | Layout    | Corners | Depth  | Spacing     | Font   |
+| --------- | --------- | ------- | ------ | ----------- | ------ |
+| Classic   | Classic   | Round   | Raised | Comfortable | Geist  |
+| Directory | Directory | Square  | Flat   | Comfortable | Geist  |
+| Compact   | Classic   | Soft    | Flat   | Compact     | System |
+| Terminal  | Directory | Square  | Flat   | Compact     | Mono   |
+
+Classic is the original site and the default. Directory is the redesign proposed in PR #1; Light
+colours with the Directory style is that PR's whole look.
+
 ## The palette is thirteen slots, and nothing else is themeable
 
-A theme is `{ name, palette }`, defined in `src/lib/theme.ts`. The palette is exactly these
-thirteen colours:
+A theme is `{ name, palette, style }`, defined in `src/lib/theme.ts`. The palette is exactly
+these thirteen colours:
 
 | Slot      | CSS property | For                                                         |
 | --------- | ------------ | ----------------------------------------------------------- |
@@ -107,19 +126,67 @@ a duplicated vocabulary gets a test (as Slate's does), not a comment.
   against both `bg` and `surface`, and the test suite checks it. Custom themes are the visitor's
   own, so the editor shows each ratio and warns below 4.5:1, but does not refuse.
 
+## Style
+
+The style is a fixed set of slots too, each a choice of a few words, and the server writes it onto
+`<html>` as `data-layout`, `data-corners`, `data-depth`, `data-density` and `data-font`.
+Everything a style changes keys off those attributes:
+
+| Slot    | Options                     | Changes                                                                 |
+| ------- | --------------------------- | ----------------------------------------------------------------------- |
+| layout  | classic, directory          | Markup and structure: header, home page, project page (below)           |
+| corners | round, soft, square         | Tailwind's `--radius-*` scale and `--radius-panel` / `--radius-control` |
+| depth   | raised, flat                | Panel shadows and the page's glow                                       |
+| density | comfortable, compact, roomy | Tailwind's `--spacing`, so every padding and gap                        |
+| font    | geist, system, mono         | The body font                                                           |
+
+Corners, depth, density and font are CSS only (the end of `globals.css`). Layout is structure, so
+it changes markup as well:
+
+- **Header**: CSS on the `site-*` classes in `layout.tsx`. Directory drops the sticky blurred bar for
+  a flat surface, widens the brand and underlines the current section (`SiteLinks` marks it with
+  `aria-current`).
+- **Home page**: `src/app/page.tsx` renders `DirectoryHeading` and `ProjectCards`
+  (`src/components/directory.tsx`) instead of its classic heading and `ProjectList`.
+- **Project page**: `ProjectView` puts a large figure beside the title, draws taller square bars and
+  moves the details sidebar under the report.
+
+Server components read the layout with `chosenTheme()` from `src/lib/theme-server.ts`. When a
+visitor picks a different layout, the picker rewrites the cookie and refreshes the page so the
+server renders the new markup.
+
+A new layout must work with every palette and every other style slot. Use the same tokens as
+everywhere else, and keep the classic markup unchanged unless the change is meant for Classic too.
+
+## The mark and the tab icon
+
+The header mark is the brand's matched green and in-progress blue in Slate. Any other palette sets
+`data-tinted` on `<html>`, and the mark then takes the theme's accent: three units in it, the
+fourth part-way there. Hovering the site name fills in the fourth.
+
+Off Slate, the tab icon is redrawn the same way in the browser (`markSvg` in
+`src/components/use-theme.tsx`), and `theme-color` follows the background, so mobile browsers tint
+their toolbar to match. Slate keeps the static `src/app/icon.svg`.
+
 ## Sharing themes
 
 A theme copies as one line of text:
 
 ```
-bytematch-theme:1:{"name":"Dusk","palette":{"bg":"#0b0f17", … all thirteen slots …}}
+bytematch-theme:2:{"name":"Dusk","palette":{"bg":"#0b0f17", … all thirteen slots …},"style":{"layout":"directory", …}}
 ```
 
-`parseTheme` reads it back, and refuses anything that is not `#rrggbb` in every slot. It also
-reads Albedo's format (`albedo-theme:1:`): `bg`, `panel`, `edge`, `fg`, `dim` and `accent` become
-the neutrals and accent, and `success`, `danger` and `warn` become `good`, `bad` and `warn`. The
-data slots come from Slate. Saved themes are checked again by the same parser each time they are
-read from storage, so a hand-edited entry cannot inject anything but colours.
+`parseTheme` reads it back and refuses anything that is not `#rrggbb` in every colour slot.
+Unknown style values fall back to Classic's. It also reads version 1 (no style, so Classic) and
+Albedo's format (`albedo-theme:1:`): `bg`, `panel`, `edge`, `fg`, `dim` and `accent` become the
+neutrals and accent, and `success`, `danger` and `warn` become `good`, `bad` and `warn`. The data
+slots come from Slate. Saved themes and the cookie are checked again each time they are read, so a
+hand-edited value can only ever produce hex colours and known style words.
+
+On `/theme`, a pasted theme is read as it is pasted. A valid one shows its name, colours and layout
+with an **Add and use** button, and an invalid one says what is wrong under the field. Adding it
+saves and switches straight away, and the note that follows offers **Edit it** and **Undo**. A name
+already in use gets a number, and the note says so.
 
 ## Adding to the interface
 
@@ -136,5 +203,6 @@ When something genuinely does not fit, change this page first and the CSS second
 ## Credits
 
 The slot-and-derive model, the shared text format and the accent presets follow Albedo's
-`@albedo/ui-theme` and its interface style guide. The Light and Graphite palettes come from
-clickbate's redesign in PR #1.
+`@albedo/ui-theme` and its interface style guide. The Light and Graphite palettes and the Directory
+layout come from clickbate's redesign in PR #1. Its platform logos and SteamGridDB artwork are not
+included: the Directory cards show a platform's short code instead.

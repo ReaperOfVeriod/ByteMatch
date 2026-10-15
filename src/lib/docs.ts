@@ -49,7 +49,7 @@ export const DOCS = [
     slug: "theming",
     file: "docs/theming.md",
     group: "Development",
-    summary: "The thirteen palette slots, derived colours, and the rules for adding colour.",
+    summary: "Palette and style slots, derived colours, layouts, and the rules for adding colour.",
   },
 ] as const;
 
