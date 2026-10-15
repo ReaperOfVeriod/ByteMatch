@@ -185,8 +185,21 @@ Every custom theme someone saves gets a **share code**: an adjective, an animal 
 Codes live in the `shared_themes` table (`src/db/themes.ts`). A code points at a theme's content:
 the same name, colours and style always get the same code, and editing a theme gives it a new one
 while the old code keeps showing the old version. Nobody owns a code, so sharing needs no account.
-To stop one browser flooding the table, each address may create 30 new codes an hour (re-sharing
-an existing theme doesn't count). Only a salted hash of the address is kept, for that count.
+Limits keep the table from being flooded:
+
+- **Per address**: 30 new codes an hour; re-sharing an existing theme doesn't count. The address is
+  the one the reverse proxy saw: `X-Real-IP`, else the _last_ `X-Forwarded-For` entry. The first
+  entries are whatever the client sent, so they're never trusted. IPv6 addresses count per /64.
+  Requests with no address at all share one bucket, so they're limited together rather than not at
+  all. Only a salted hash of the address is kept.
+- **Site-wide**: 2,000 new codes per 24 hours by default. Owners can change that, or pause sharing,
+  on the admin panel's Themes page; existing codes keep working either way.
+- **Unused codes** are deleted after 180 days by the nightly prune job. A code counts as used when
+  it's shared again, opened, added, or still saved in someone's browser when they visit `/theme`.
+  Their browser reports the codes it holds, and any that are gone are replaced with fresh ones.
+- **Moderation**: the Themes page lists the newest codes with who shared them (as a short hash),
+  and admins can remove one, or everything one sharer made. A removed theme stops working and
+  can't be shared again; removals are recorded in the audit log.
 
 Underneath, a theme still has a text form, which is what travels between the browser and the server
 and what Albedo themes are pasted in as:
