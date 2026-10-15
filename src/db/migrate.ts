@@ -1,12 +1,15 @@
+import { join } from "node:path";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { isEntry } from "../lib/entry";
 import { closeDb, db } from "./client";
 
 /** Applies the SQL migrations in drizzle/. Run before starting a new version: npm run db:migrate. */
 export async function runMigrations() {
-  await migrate(db(), { migrationsFolder: new URL("../../drizzle", import.meta.url).pathname });
+  // drizzle/ sits in the project root, which is the working directory under pm2, Compose and tests.
+  await migrate(db(), { migrationsFolder: process.env.MIGRATIONS_DIR ?? join(process.cwd(), "drizzle") });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntry(import.meta.url)) {
   runMigrations()
     .then(() => console.log("migrations applied"))
     .catch((e) => {

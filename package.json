@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 5000",
     "build": "next build && yarn build:server",
-    "build:server": "esbuild src/worker/main.ts src/db/migrate.ts --bundle --platform=node --format=esm --target=node24 --packages=external --outdir=dist --entry-names=[name] --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
+    "build:server": "node scripts/build-server.mjs",
     "start": "next start -H 0.0.0.0 -p 5000",
     "worker": "node --env-file-if-exists=.env dist/main.js",
     "worker:dev": "tsx watch --env-file-if-exists=.env src/worker/main.ts",

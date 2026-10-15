@@ -7,6 +7,7 @@ import { commentOnRun } from "../github/comments";
 import { importFromDecompDev } from "../ingest/decompdev";
 import { ingestRunById, pollProject, recordError } from "../ingest/github";
 import { config } from "../lib/config";
+import { isEntry } from "../lib/entry";
 import { boss, enqueue, JOBS, stopQueue, type JobData, type JobName } from "../lib/queue";
 
 const log = (...args: unknown[]) => console.log(new Date().toISOString(), ...args);
@@ -102,7 +103,7 @@ export async function startWorker() {
   log(`worker started: polling every ${every} min, concurrency ${c.WORKER_CONCURRENCY}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("src/worker/main.ts")) {
+if (isEntry(import.meta.url)) {
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
