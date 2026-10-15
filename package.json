@@ -18,7 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
     "pm2:start": "pm2 start ecosystem.config.cjs",
-    "pm2:reload": "pm2 reload ecosystem.config.cjs",
+    "pm2:reload": "pm2 reload ecosystem.config.cjs --update-env",
     "pm2:stop": "pm2 stop ecosystem.config.cjs",
     "pm2:logs": "pm2 logs",
     "lint": "eslint .",

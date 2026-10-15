@@ -65,6 +65,9 @@ pm2 startup                 # prints a command that makes pm2 start at boot; run
 
 Other scripts: `yarn pm2:reload`, `yarn pm2:stop`, `yarn pm2:logs`.
 
+pm2 remembers each process's environment from its first start. `yarn pm2:reload` passes
+`--update-env`, so it picks up changes to `.env`; a bare `pm2 reload` or `pm2 restart` does not.
+
 The web server listens on `0.0.0.0:5000`. Firewall that port and expose only the reverse proxy.
 
 ## Deploying with containers
