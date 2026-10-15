@@ -18,26 +18,28 @@ Or Docker / Podman with Compose, which provides Node and Postgres for you.
 Settings are environment variables. Copy `.env.example` to `.env`; the file is read by
 `next start`, the worker and the migrations.
 
-| Variable                 | Default                                                   | Description                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`           | `postgres://bytematch:bytematch@localhost:5432/bytematch` | PostgreSQL connection string.                                                                                                                     |
-| `PUBLIC_URL`             | `http://localhost:5000`                                   | Public address of the instance, used in links, badges and PR comments.                                                                            |
-| `SITE_NAME`              | `ByteMatch`                                               | Shown in the header and page titles.                                                                                                              |
-| `GITHUB_TOKEN`           |                                                           | Optional fine-grained PAT (public read is enough) for downloading artifacts from repositories without the App.                                    |
-| `GITHUB_APP_ID`          |                                                           | GitHub App id.                                                                                                                                    |
-| `GITHUB_APP_PRIVATE_KEY` |                                                           | The App's private key PEM. Literal `\n` sequences are allowed.                                                                                    |
-| `GITHUB_APP_SLUG`        |                                                           | App slug, for the "Install the App" link.                                                                                                         |
-| `GITHUB_WEBHOOK_SECRET`  |                                                           | Webhook secret set on the App.                                                                                                                    |
-| `GITHUB_CLIENT_ID`       |                                                           | The App's OAuth client id, for sign-in.                                                                                                           |
-| `GITHUB_CLIENT_SECRET`   |                                                           | The App's OAuth client secret.                                                                                                                    |
-| `SECRET_KEY`             |                                                           | 32 random bytes as 64 hex characters or base64 (`openssl rand -hex 32`). Encrypts signed-in users' GitHub tokens. Sign-in is disabled without it. |
-| `ADMIN_GITHUB_LOGINS`    |                                                           | Comma-separated GitHub logins who can manage every project.                                                                                       |
-| `OPEN_REGISTRATION`      | `true`                                                    | `false` makes adding projects admin-only.                                                                                                         |
-| `POLL_INTERVAL_MINUTES`  | `15`                                                      | How often the worker checks projects for new CI runs.                                                                                             |
-| `REPORT_RETENTION_DAYS`  | `0`                                                       | `0` keeps everything. Otherwise full reports older than this are dropped, except each version's latest. Measures and history are kept forever.    |
-| `MAX_REPORT_BYTES`       | `268435456` (256 MiB)                                     | Largest report accepted.                                                                                                                          |
-| `DECOMP_DEV_URL`         | `https://decomp.dev`                                      | Source for "Import from decomp.dev".                                                                                                              |
-| `WORKER_CONCURRENCY`     | `4`                                                       | Jobs each worker process runs at once.                                                                                                            |
+| Variable                   | Default                                                   | Description                                                                                                                                       |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | `postgres://bytematch:bytematch@localhost:5432/bytematch` | PostgreSQL connection string.                                                                                                                     |
+| `PUBLIC_URL`               | `http://localhost:5000`                                   | Public address of the instance, used in links, badges and PR comments.                                                                            |
+| `SITE_NAME`                | `ByteMatch`                                               | Shown in the header and page titles.                                                                                                              |
+| `GOOGLE_SITE_VERIFICATION` |                                                           | Optional: the `content` value from Google Search Console's "HTML tag" verification. See [Search engines](#search-engines).                        |
+| `BING_SITE_VERIFICATION`   |                                                           | Optional: the `content` value from Bing Webmaster Tools' "HTML Meta Tag" verification.                                                            |
+| `GITHUB_TOKEN`             |                                                           | Optional fine-grained PAT (public read is enough) for downloading artifacts from repositories without the App.                                    |
+| `GITHUB_APP_ID`            |                                                           | GitHub App id.                                                                                                                                    |
+| `GITHUB_APP_PRIVATE_KEY`   |                                                           | The App's private key PEM. Literal `\n` sequences are allowed.                                                                                    |
+| `GITHUB_APP_SLUG`          |                                                           | App slug, for the "Install the App" link.                                                                                                         |
+| `GITHUB_WEBHOOK_SECRET`    |                                                           | Webhook secret set on the App.                                                                                                                    |
+| `GITHUB_CLIENT_ID`         |                                                           | The App's OAuth client id, for sign-in.                                                                                                           |
+| `GITHUB_CLIENT_SECRET`     |                                                           | The App's OAuth client secret.                                                                                                                    |
+| `SECRET_KEY`               |                                                           | 32 random bytes as 64 hex characters or base64 (`openssl rand -hex 32`). Encrypts signed-in users' GitHub tokens. Sign-in is disabled without it. |
+| `ADMIN_GITHUB_LOGINS`      |                                                           | Comma-separated GitHub logins who can manage every project.                                                                                       |
+| `OPEN_REGISTRATION`        | `true`                                                    | `false` makes adding projects admin-only.                                                                                                         |
+| `POLL_INTERVAL_MINUTES`    | `15`                                                      | How often the worker checks projects for new CI runs.                                                                                             |
+| `REPORT_RETENTION_DAYS`    | `0`                                                       | `0` keeps everything. Otherwise full reports older than this are dropped, except each version's latest. Measures and history are kept forever.    |
+| `MAX_REPORT_BYTES`         | `268435456` (256 MiB)                                     | Largest report accepted.                                                                                                                          |
+| `DECOMP_DEV_URL`           | `https://decomp.dev`                                      | Source for "Import from decomp.dev".                                                                                                              |
+| `WORKER_CONCURRENCY`       | `4`                                                       | Jobs each worker process runs at once.                                                                                                            |
 
 Sign-in needs `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `SECRET_KEY`. Webhooks, PR comments and
 installation tokens need `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET`.
@@ -182,6 +184,40 @@ Accounts listed in `ADMIN_GITHUB_LOGINS` see **Admin** in the header (`/admin`; 
 | Settings  | Open or close project submissions (overriding `OPEN_REGISTRATION`), and pause all syncing during maintenance; queued work resumes when you switch it back on.                                               |
 
 Deleting a project removes it and everything stored for it. Disabling hides it but keeps its history.
+
+## Search engines
+
+ByteMatch looks after the parts search engines read on its own, and keeps them current as projects
+come and go:
+
+- **`/sitemap.xml`** lists the home page, games, activity, docs, every public project (and its other
+  versions), and every game and franchise page, with last-modified dates from the projects' latest
+  reports. It's built per request from the database. **`/robots.txt`** points to it and keeps
+  crawlers out of `/manage`, `/api` and `/auth`.
+- **Every page** has its own title, description, canonical URL and social card. Project pages get
+  a card drawn from their progress; a project's default version is canonicalised to its main URL,
+  so the two don't compete.
+- **Structured data** (JSON-LD): the site (`WebSite`), each project's progress (`Dataset`), docs
+  pages (`TechArticle`), games and franchises (`CollectionPage` with the game as a `VideoGame`), and
+  breadcrumbs (`BreadcrumbList`) on project, game, franchise and docs pages.
+- **Private and personal pages** aren't indexed: the manage pages, the admin panel (a 404 to
+  anyone but staff), shared theme links and projects that are hidden.
+- **`/llms.txt`** summarises the site, its docs and its projects for language-model crawlers.
+
+### Google Search Console
+
+1. Add the site in [Search Console](https://search.google.com/search-console). A **Domain** property
+   (verified with a DNS TXT record) covers every address the site answers on and needs nothing from
+   ByteMatch. For a **URL prefix** property, choose the "HTML tag" method, copy the `content` value,
+   set it as `GOOGLE_SITE_VERIFICATION` in `.env`, restart the web process (`yarn pm2:reload`), then
+   press Verify.
+2. Under **Sitemaps**, submit `sitemap.xml` (e.g. `https://bytematch.dev/sitemap.xml`). Google also
+   finds it through `robots.txt`, but submitting it shows its status and any errors.
+3. Use **URL Inspection** on a project page to check it can be fetched and indexed, and the
+   [Rich Results Test](https://search.google.com/test/rich-results) to check its structured data.
+
+For Bing, [Webmaster Tools](https://www.bing.com/webmasters) can import the site straight from
+Search Console, or verify with `BING_SITE_VERIFICATION` the same way.
 
 ## Upgrades
 
