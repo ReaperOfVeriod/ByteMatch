@@ -4,6 +4,7 @@ import { MONO, OG, OG_SIZE, SANS, UnitGrid, Wordmark, ogFonts } from "@/lib/og";
 import { platformName } from "@/lib/platforms";
 import { resolve } from "@/lib/project-data";
 import { siteHost } from "@/lib/seo";
+import { RenderCache, SOCIAL_IMAGE_CACHE } from "@/lib/render-cache";
 
 export const alt = "Decompilation progress";
 export const size = OG_SIZE;
@@ -45,9 +46,17 @@ async function load(owner: string, repo: string): Promise<Card> {
   }
 }
 
+const cards = new RenderCache<ArrayBuffer>(300);
+
 export default async function Image({ params }: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = await params;
   const card = await load(owner, repo);
+  // A card is drawn from these values alone: the same values, the same picture.
+  const png = await cards.getOrRender(JSON.stringify([card, siteHost()]), async () => (await draw(card)).arrayBuffer());
+  return new Response(png, { headers: { "content-type": "image/png", "cache-control": SOCIAL_IMAGE_CACHE } });
+}
+
+async function draw(card: Card): Promise<ImageResponse> {
   const m = card.measures;
   const code = m ? clampPct(m.code) : 0;
   const fuzzy = m ? Math.max(code, clampPct(m.fuzzy)) : 0;
@@ -69,7 +78,14 @@ export default async function Image({ params }: { params: Promise<{ owner: strin
       }}
     >
       <div style={{ position: "absolute", top: 46, right: 46, display: "flex", opacity: 0.5 }}>
-        <UnitGrid cols={8} rows={4} cell={18} gap={5} progress={m ? code / 100 : 0.3} seed={owner.length * 31 + repo.length} />
+        <UnitGrid
+          cols={8}
+          rows={4}
+          cell={18}
+          gap={5}
+          progress={m ? code / 100 : 0.3}
+          seed={card.path.split("/")[0].length * 31 + (card.path.split("/")[1] ?? "").length}
+        />
       </div>
       <div style={{ display: "flex", alignItems: "center" }}>
         <Wordmark name={config().SITE_NAME} size={30} color={OG.text2} />

@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { RenderCache, SOCIAL_IMAGE_CACHE } from "@/lib/render-cache";
 import { config } from "@/lib/config";
 import { MONO, OG, OG_SIZE, SANS, UnitGrid, Wordmark, ogFonts } from "@/lib/og";
 import { SITE_TAGLINE, siteHost } from "@/lib/seo";
@@ -9,7 +10,14 @@ export const contentType = "image/png";
 // SITE_NAME and PUBLIC_URL are read at request time, not baked in at build.
 export const dynamic = "force-dynamic";
 
+const cards = new RenderCache<ArrayBuffer>(4);
+
 export default async function Image() {
+  const png = await cards.getOrRender(`${config().SITE_NAME}|${siteHost()}`, async () => (await draw()).arrayBuffer());
+  return new Response(png, { headers: { "content-type": "image/png", "cache-control": SOCIAL_IMAGE_CACHE } });
+}
+
+async function draw(): Promise<ImageResponse> {
   const name = config().SITE_NAME;
   return new ImageResponse(
     <div
