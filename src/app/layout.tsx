@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-screen font-sans antialiased">
         <JsonLd data={siteJsonLd()} />
         <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
-          <nav className="mx-auto flex h-14 max-w-6xl items-center gap-1 px-4">
+          <nav className="mx-auto flex h-14 max-w-7xl items-center gap-1 px-4">
             <Link href="/" className="mr-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
               <Mark />
               {name}
@@ -76,9 +76,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </nav>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:py-10">{children}</main>
         <footer className="border-t border-line">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-xs text-ink-3">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-xs text-ink-3">
             <span>
               {name} tracks matching decompilation progress from{" "}
               <a className="underline hover:text-ink" href="https://github.com/encounter/objdiff">

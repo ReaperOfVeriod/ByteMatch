@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export interface HistoryPoint {
   /** Commit time, ms since epoch. */
@@ -25,9 +25,18 @@ const SERIES = [
   { key: "functions", label: "Functions matched", color: "var(--series-1)" },
 ] as const;
 
-const W = 760;
-const H = 260;
-const PAD = { top: 12, right: 112, bottom: 28, left: 40 };
+/** Drawn at its real pixel width, so text stays 11px however narrow the panel is. */
+function useWidth(ref: React.RefObject<HTMLDivElement | null>) {
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.floor(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
 const fmtDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 const fmtDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const fmtMonth = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
@@ -43,6 +52,13 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("all");
   const [hover, setHover] = useState<number | null>(null);
   const svg = useRef<SVGSVGElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const measured = useWidth(wrap);
+  const W = measured || 640;
+  const compact = W < 520;
+  const H = compact ? 190 : 260;
+  // End labels need room on the right; narrow charts rely on the legend and tooltip instead.
+  const PAD = { top: 12, right: compact ? 10 : 112, bottom: 28, left: 40 };
 
   const data = useMemo(() => {
     const days = RANGES.find((r) => r.id === range)!.days;
@@ -66,7 +82,8 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
     data.map((p, i) => (i === 0 ? `M${x(p.t)},${y(p[key])}` : `H${x(p.t)}V${y(p[key])}`)).join("") + `H${x(t1)}`;
 
   const ticks = [0, 25, 50, 75, 100];
-  const xTicks = Array.from({ length: 5 }, (_, i) => t0 + ((t1 - t0) * i) / 4);
+  const tickCount = compact ? 3 : 5;
+  const xTicks = Array.from({ length: tickCount }, (_, i) => t0 + ((t1 - t0) * i) / (tickCount - 1));
   const last = data[data.length - 1];
   // End labels, nudged apart when the two lines finish close together.
   let ly = [y(last.code), y(last.functions)];
@@ -105,7 +122,7 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
           ))}
         </div>
       </div>
-      <div className="relative">
+      <div className="relative" ref={wrap}>
         <svg
           ref={svg}
           viewBox={`0 0 ${W} ${H}`}
@@ -124,18 +141,26 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
             </g>
           ))}
           {xTicks.map((t, i) => (
-            <text key={i} x={x(t)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} fontSize={11} fill="var(--text-3)">
+            <text
+              key={i}
+              x={x(t)}
+              y={H - 8}
+              textAnchor={i === 0 ? "start" : i === tickCount - 1 ? "end" : "middle"}
+              fontSize={11}
+              fill="var(--text-3)"
+            >
               {axisLabel(t, t1 - t0)}
             </text>
           ))}
           {SERIES.map((s) => (
             <path key={s.key} d={path(s.key)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           ))}
-          {SERIES.map((s, i) => (
-            <text key={s.key} x={x(t1) + 8} y={ly[i]} dy="0.32em" fontSize={11} fill="var(--text-2)">
-              {(s.key === "code" ? last.code : last.functions).toFixed(2)}% {s.key === "code" ? "code" : "functions"}
-            </text>
-          ))}
+          {!compact &&
+            SERIES.map((s, i) => (
+              <text key={s.key} x={x(t1) + 8} y={ly[i]} dy="0.32em" fontSize={11} fill="var(--text-2)">
+                {(s.key === "code" ? last.code : last.functions).toFixed(2)}% {s.key === "code" ? "code" : "functions"}
+              </text>
+            ))}
           {h ? (
             <g pointerEvents="none">
               <line

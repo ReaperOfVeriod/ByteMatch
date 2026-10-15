@@ -8,6 +8,7 @@ import { projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
 import { config } from "@/lib/config";
 import { platformName } from "@/lib/platforms";
+import { publicError } from "@/lib/errors";
 import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
@@ -26,9 +27,22 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
   return (
     <div className="px-1 py-1">
       <div className="text-xs text-ink-3">{label}</div>
-      <div className="mt-1 font-mono text-2xl font-semibold">{value}</div>
+      <div className="mt-0.5 font-mono text-xl font-semibold">{value}</div>
       {detail ? <div className="mt-0.5 text-xs text-ink-2">{detail}</div> : null}
     </div>
+  );
+}
+
+/** A titled panel in the right-hand column (stacked under the grid on narrow screens). */
+function Side({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="panel p-5">
+      <h2 className="mb-3.5 flex items-baseline gap-2 text-sm font-semibold">
+        {title}
+        {aside ? <span className="text-xs font-normal text-ink-3">{aside}</span> : null}
+      </h2>
+      {children}
+    </section>
   );
 }
 
@@ -66,9 +80,7 @@ function Syncing({ project }: { project: Project }) {
           minute or two.
         </p>
         {project.lastError ? (
-          <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
-            The last attempt failed{project.lastErrorAt ? ` (${fmtDateTime.format(project.lastErrorAt)})` : ""}: {project.lastError}
-          </p>
+          <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">{publicError(project.lastError)}</p>
         ) : project.lastPolledAt ? (
           <p className="mt-4 text-sm text-ink-3">Last checked {fmtDateTime.format(project.lastPolledAt)}: no report artifacts found yet.</p>
         ) : null}
@@ -174,7 +186,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
   const navOff = "btn h-9 flex-1 cursor-not-allowed border border-line px-3 text-sm text-ink-3 opacity-50";
 
   return (
-    <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
 
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
@@ -197,202 +209,196 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
         </a>
       </nav>
 
-      <section className="panel overflow-hidden">
-        {project.imageUrl ? (
-          <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
-        ) : null}
-        <div className="p-6 sm:p-7">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-            {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
-          </h1>
-          <p className="mt-1 text-base font-medium text-ink-3">
-            {m.complete_code_percent.toFixed(2)}% fully linked
-            {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
-          </p>
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
+          <section className="panel overflow-hidden">
+            {project.imageUrl ? (
+              <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
+            ) : null}
+            <div className="p-6 sm:p-7">
+              <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
+              </h1>
+              <p className="mt-1 text-base font-medium text-ink-3">
+                {m.complete_code_percent.toFixed(2)}% fully linked
+                {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
+              </p>
 
-          <div className="mt-6">
-            <div className="mb-2 text-sm text-ink-2">
-              Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
-            </div>
-            <CodeBar m={m} />
-          </div>
-
-          <div className="mt-6 border-t border-line pt-5">
-            <div className="mb-3 truncate font-mono text-[13px] text-ink-2">
-              <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
-                {row.commitSha.slice(0, 7)}
-              </a>{" "}
-              <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
-              <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
-            </div>
-            <div className="flex gap-2">
-              {older ? (
-                <Link href={commitHref(older.commitSha)} className={navBtn} scroll={false}>
-                  <ChevronRight size={14} className="rotate-180" />
-                  Previous
-                </Link>
-              ) : (
-                <span className={navOff} aria-disabled>
-                  <ChevronRight size={14} className="rotate-180" />
-                  Previous
-                </span>
-              )}
-              {newer ? (
-                <Link href={commitHref(newer.commitSha)} className={navBtn} scroll={false}>
-                  Next
-                  <ChevronRight size={14} />
-                </Link>
-              ) : (
-                <span className={navOff} aria-disabled>
-                  Next
-                  <ChevronRight size={14} />
-                </span>
-              )}
-              {commit ? (
-                <Link href={pagePath} className="btn btn-primary h-9 flex-1 px-3 text-sm" scroll={false}>
-                  Latest
-                </Link>
-              ) : (
-                <span className="btn h-9 flex-1 border border-line bg-surface-2 px-3 text-sm text-ink-2" aria-current="true">
-                  Latest
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel p-5 sm:p-6">
-        {report ? (
-          <Suspense fallback={<div className="h-[clamp(360px,calc(100vh-360px),720px)]" />}>
-            <UnitMap
-              units={mapUnits}
-              categories={row.categories.map((c) => ({ id: c.id, name: c.name }))}
-              owner={project.owner}
-              repo={project.repo}
-              version={r.version}
-              commit={commit ? row.commitSha : null}
-            />
-          </Suspense>
-        ) : (
-          <p className="py-10 text-center text-sm text-ink-3">
-            {commit
-              ? "No unit breakdown is stored for this commit (it came from decomp.dev's history, which keeps totals only)."
-              : "No unit breakdown stored for this version yet."}
-          </p>
-        )}
-      </section>
-
-      <div className="grid gap-3">
-        <More title="Details">
-          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-line [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
-            <Stat
-              label="Code matched"
-              value={`${m.matched_code_percent.toFixed(2)}%`}
-              detail={`${formatBytes(m.matched_code)} of ${formatBytes(m.total_code)}`}
-            />
-            <Stat
-              label="Functions"
-              value={`${fmt.format(m.matched_functions)}`}
-              detail={`of ${fmt.format(m.total_functions)} (${m.matched_functions_percent.toFixed(2)}%)`}
-            />
-            <Stat label="Fuzzy match" value={`${m.fuzzy_match_percent.toFixed(2)}%`} detail="counting partly matched code" />
-            {m.total_data > 0 ? (
-              <Stat
-                label="Data matched"
-                value={`${m.matched_data_percent.toFixed(2)}%`}
-                detail={`${formatBytes(m.matched_data)} of ${formatBytes(m.total_data)}`}
-              />
-            ) : (
-              <Stat
-                label="Units complete"
-                value={`${fmt.format(m.complete_units)} / ${fmt.format(m.total_units)}`}
-                detail={`${m.complete_code_percent.toFixed(2)}% of code linked`}
-              />
-            )}
-          </div>
-        </More>
-
-        <More title="History" aside={`${fmt.format(points.length)} commits`}>
-          <div>
-            <HistoryChart points={points} />
-          </div>
-        </More>
-
-        {row.categories.length > 0 ? (
-          <More title="Categories" aside={`${row.categories.length}`}>
-            <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
-              {row.categories.map((c) => (
-                <div key={c.id}>
-                  <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                    <span className="truncate">{c.name || c.id}</span>
-                    <span className="shrink-0 font-mono text-xs text-ink-2">{c.measures.matched_code_percent.toFixed(2)}%</span>
-                  </div>
-                  <ProgressBar value={c.measures.matched_code_percent} label={`${c.name || c.id}: code matched`} />
+              <div className="mt-6">
+                <div className="mb-2 text-sm text-ink-2">
+                  Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
                 </div>
-              ))}
+                <CodeBar m={m} />
+              </div>
+
+              <div className="mt-6 border-t border-line pt-5">
+                <div className="mb-3 truncate font-mono text-[13px] text-ink-2">
+                  <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
+                    {row.commitSha.slice(0, 7)}
+                  </a>{" "}
+                  <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
+                  <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+                </div>
+                <div className="flex gap-2">
+                  {older ? (
+                    <Link href={commitHref(older.commitSha)} className={navBtn} scroll={false}>
+                      <ChevronRight size={14} className="rotate-180" />
+                      Previous
+                    </Link>
+                  ) : (
+                    <span className={navOff} aria-disabled>
+                      <ChevronRight size={14} className="rotate-180" />
+                      Previous
+                    </span>
+                  )}
+                  {newer ? (
+                    <Link href={commitHref(newer.commitSha)} className={navBtn} scroll={false}>
+                      Next
+                      <ChevronRight size={14} />
+                    </Link>
+                  ) : (
+                    <span className={navOff} aria-disabled>
+                      Next
+                      <ChevronRight size={14} />
+                    </span>
+                  )}
+                  {commit ? (
+                    <Link href={pagePath} className="btn btn-primary h-9 flex-1 px-3 text-sm" scroll={false}>
+                      Latest
+                    </Link>
+                  ) : (
+                    <span className="btn h-9 flex-1 border border-line bg-surface-2 px-3 text-sm text-ink-2" aria-current="true">
+                      Latest
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-          </More>
-        ) : null}
+          </section>
 
-        {report ? (
-          <More title="Unit list" aside={`${fmt.format(units.length)} units`}>
-            <UnitTable units={units} owner={project.owner} repo={project.repo} version={r.version} />
-          </More>
-        ) : null}
+          <section className="panel p-5 sm:p-6">
+            {report ? (
+              <Suspense fallback={<div className="h-[clamp(360px,calc(100vh-360px),720px)]" />}>
+                <UnitMap
+                  units={mapUnits}
+                  categories={row.categories.map((c) => ({ id: c.id, name: c.name }))}
+                  owner={project.owner}
+                  repo={project.repo}
+                  version={r.version}
+                  commit={commit ? row.commitSha : null}
+                />
+              </Suspense>
+            ) : (
+              <p className="py-10 text-center text-sm text-ink-3">
+                {commit
+                  ? "No unit breakdown is stored for this commit (it came from decomp.dev's history, which keeps totals only)."
+                  : "No unit breakdown stored for this version yet."}
+              </p>
+            )}
+          </section>
 
-        <More title="Recent commits">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-sm">
-              <tbody className="divide-y divide-line">
-                {recent.map((h) => {
-                  const p = previous.get(h.commitSha);
-                  const dCode = p ? h.measures.matched_code_percent - p.matched_code_percent : 0;
-                  return (
-                    <tr key={h.commitSha}>
-                      <td className="max-w-0 py-1.5 pr-3">
-                        <a href={`${repoUrl(project)}/commit/${h.commitSha}`} className="flex gap-2 hover:underline">
-                          <span className="shrink-0 font-mono text-xs text-ink-3">{h.commitSha.slice(0, 7)}</span>
-                          <span className="truncate">{h.commitMessage?.split("\n")[0] ?? ""}</span>
-                        </a>
-                      </td>
-                      <td className="py-1.5 pr-3 whitespace-nowrap text-ink-3">{fmtDate.format(h.commitTimestamp)}</td>
-                      <td className="py-1.5 text-right font-mono whitespace-nowrap">
-                        {h.measures.matched_code_percent.toFixed(2)}%
-                        {Math.abs(dCode) >= 0.005 ? (
-                          <span className={`ml-1.5 text-xs ${dCode > 0 ? "text-good" : "text-bad"}`}>
-                            {dCode > 0 ? "+" : "−"}
-                            {Math.abs(dCode).toFixed(2)}
-                          </span>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </More>
+          {report ? (
+            <More title="Unit list" aside={`${fmt.format(units.length)} units`}>
+              <UnitTable units={units} owner={project.owner} repo={project.repo} version={r.version} />
+            </More>
+          ) : null}
+        </div>
 
-        <More title="Badges">
-          <div className="grid gap-4">
-            <div className="flex flex-wrap gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element -- badges are tiny SVGs served by this site */}
-              <img alt="Code badge" src={`${base}${versionPath}.svg?mode=shield&label=Code&measure=matched_code_percent`} />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="Functions badge" src={`${base}${versionPath}.svg?mode=shield&label=Functions&measure=matched_functions`} />
+        <aside className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:sticky xl:top-20" aria-label="Project details">
+          <Side title="Details">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <Stat
+                label="Code matched"
+                value={`${m.matched_code_percent.toFixed(2)}%`}
+                detail={`${formatBytes(m.matched_code)} of ${formatBytes(m.total_code)}`}
+              />
+              <Stat
+                label="Functions"
+                value={fmt.format(m.matched_functions)}
+                detail={`of ${fmt.format(m.total_functions)} (${m.matched_functions_percent.toFixed(1)}%)`}
+              />
+              <Stat label="Fuzzy match" value={`${m.fuzzy_match_percent.toFixed(2)}%`} detail="incl. partial matches" />
+              {m.total_data > 0 ? (
+                <Stat
+                  label="Data matched"
+                  value={`${m.matched_data_percent.toFixed(2)}%`}
+                  detail={`${formatBytes(m.matched_data)} of ${formatBytes(m.total_data)}`}
+                />
+              ) : (
+                <Stat label="Units complete" value={`${fmt.format(m.complete_units)}`} detail={`of ${fmt.format(m.total_units)}`} />
+              )}
             </div>
-            <CopyField
-              label="Code"
-              value={`[![Code](${site}${base}${versionPath}.svg?mode=shield&label=Code&measure=matched_code_percent)](${site}${base})`}
-            />
-            <CopyField
-              label="Functions"
-              value={`[![Functions](${site}${base}${versionPath}.svg?mode=shield&label=Functions&measure=matched_functions)](${site}${base})`}
-            />
-            <CopyField label="JSON" value={`${site}${base}${versionPath}.json`} />
-          </div>
-        </More>
+          </Side>
+
+          <Side title="History" aside={`${fmt.format(points.length)} commits`}>
+            <HistoryChart points={points} />
+          </Side>
+
+          {row.categories.length > 0 ? (
+            <Side title="Categories" aside={`${row.categories.length}`}>
+              <div className="-mr-2 grid max-h-72 grid-cols-[minmax(0,1fr)] gap-y-3 overflow-y-auto pr-2">
+                {row.categories.map((c) => (
+                  <div key={c.id}>
+                    <div className="mb-1 flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="truncate">{c.name || c.id}</span>
+                      <span className="shrink-0 font-mono text-xs text-ink-2">{c.measures.matched_code_percent.toFixed(2)}%</span>
+                    </div>
+                    <ProgressBar value={c.measures.matched_code_percent} label={`${c.name || c.id}: code matched`} />
+                  </div>
+                ))}
+              </div>
+            </Side>
+          ) : null}
+
+          <Side title="Recent commits">
+            <ul className="-mx-1 grid grid-cols-[minmax(0,1fr)]">
+              {recent.slice(0, 8).map((h) => {
+                const p = previous.get(h.commitSha);
+                const dCode = p ? h.measures.matched_code_percent - p.matched_code_percent : 0;
+                const here = h.commitSha === row.commitSha;
+                return (
+                  <li key={h.commitSha}>
+                    <Link
+                      href={commitHref(h.commitSha)}
+                      scroll={false}
+                      title={`${fmtDate.format(h.commitTimestamp)} · ${h.measures.matched_code_percent.toFixed(2)}%`}
+                      className={`flex items-center gap-2 rounded-lg px-1 py-1.5 text-[13px] transition-colors hover:bg-surface-2 ${here ? "bg-surface-2" : ""}`}
+                    >
+                      <span className="shrink-0 font-mono text-xs text-ink-3">{h.commitSha.slice(0, 7)}</span>
+                      <span className="min-w-0 truncate text-ink-2">{h.commitMessage?.split("\n")[0] ?? ""}</span>
+                      {Math.abs(dCode) >= 0.005 ? (
+                        <span className={`ml-auto shrink-0 font-mono text-xs ${dCode > 0 ? "text-good" : "text-bad"}`}>
+                          {dCode > 0 ? "+" : "−"}
+                          {Math.abs(dCode).toFixed(2)}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Side>
+
+          <Side title="Badges">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+              <div className="flex flex-wrap gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- badges are tiny SVGs served by this site */}
+                <img alt="Code badge" src={`${base}${versionPath}.svg?mode=shield&label=Code&measure=matched_code_percent`} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt="Functions badge" src={`${base}${versionPath}.svg?mode=shield&label=Functions&measure=matched_functions`} />
+              </div>
+              <CopyField
+                label="Code"
+                value={`[![Code](${site}${base}${versionPath}.svg?mode=shield&label=Code&measure=matched_code_percent)](${site}${base})`}
+              />
+              <CopyField
+                label="Functions"
+                value={`[![Functions](${site}${base}${versionPath}.svg?mode=shield&label=Functions&measure=matched_functions)](${site}${base})`}
+              />
+              <CopyField label="JSON" value={`${site}${base}${versionPath}.json`} />
+            </div>
+          </Side>
+        </aside>
       </div>
     </div>
   );
