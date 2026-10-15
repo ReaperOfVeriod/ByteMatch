@@ -8,7 +8,7 @@ import { MobileMenu } from "@/components/mobile-menu";
 import { SiteLinks } from "@/components/site-links";
 import { ThemePicker } from "@/components/theme-picker";
 import { ThemeProvider } from "@/components/use-theme";
-import { Chat } from "@/components/ui/icons";
+import { DiscordMark } from "@/components/ui/icons";
 import { siteJsonLd, siteMetadata } from "@/lib/seo";
 import { config } from "@/lib/config";
 import { paletteVars, themeAttrs } from "@/lib/theme";
@@ -68,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="ml-auto hidden items-center gap-1 md:flex">
                 {discord ? (
                   <a href={discord} target="_blank" rel="noopener noreferrer" className={`${navLink} flex items-center gap-1.5`}>
-                    <Chat size={15} />
+                    <DiscordMark size={15} />
                     Discord
                   </a>
                 ) : null}

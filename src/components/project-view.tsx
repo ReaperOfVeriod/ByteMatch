@@ -18,7 +18,7 @@ import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
 import { ExternalImage } from "./external-image";
-import { Chat, ChevronRight, GitHubMark } from "./ui/icons";
+import { ChevronRight, DiscordMark, GitHubMark } from "./ui/icons";
 import { VersionSelect } from "./version-select";
 import { HistoryChart, type HistoryPoint } from "./history-chart";
 import { ProgressBar } from "./progress-bar";
@@ -326,7 +326,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
         )}
         {project.discordUrl ? (
           <a href={project.discordUrl} rel="noopener noreferrer" target="_blank" className="btn btn-ghost ml-auto h-9 px-3 text-sm">
-            <Chat size={14} />
+            <DiscordMark size={14} />
             Discord
           </a>
         ) : null}
