@@ -1,5 +1,5 @@
 import { gunzipSync, gzipSync } from "node:zlib";
-import { and, asc, desc, eq, sql as dsql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql as dsql } from "drizzle-orm";
 import { sha256 } from "../lib/crypto";
 import { ACCESS_ERROR_PATTERN } from "../lib/visibility";
 import { encodeReport, parseReport } from "../report/parse";
@@ -391,4 +391,15 @@ export async function loadFunctionalList(row: Pick<ReportRow, "functionalListId"
     .from(functionalLists)
     .where(eq(functionalLists.id, row.functionalListId));
   return list ? new Map(Object.entries(list.entries)) : null;
+}
+
+/** The CI run behind the project's newest report read from an artifact, if any. */
+export async function latestArtifactRun(projectId: number): Promise<number | null> {
+  const [row] = await db()
+    .select({ runId: reports.runId })
+    .from(reports)
+    .where(and(eq(reports.projectId, projectId), eq(reports.source, "artifact"), isNotNull(reports.runId)))
+    .orderBy(desc(reports.commitTimestamp), desc(reports.id))
+    .limit(1);
+  return row?.runId ?? null;
 }

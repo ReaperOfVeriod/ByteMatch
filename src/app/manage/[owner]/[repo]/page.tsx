@@ -117,6 +117,11 @@ export default async function ManageProject({ params, searchParams }: Params) {
               hint: "Read older CI runs whose artifacts have not expired (GitHub keeps them about 90 days)",
             },
             { value: "import", label: "Import from decomp.dev", hint: "Copy this project's history and latest report from decomp.dev" },
+            {
+              value: "reread",
+              label: "Re-read latest run",
+              hint: "Read the newest CI run again, e.g. after adding a functional list to its artifact",
+            },
             ...(skipped
               ? [
                   {

@@ -164,6 +164,10 @@ send a list of those functions with the report:
    (`high`, `medium` or `low`).
 2. ByteMatch sizes each listed function from the report and leaves out any that are matched by now.
 
+ByteMatch reads the list from the next run. A commit it has already read is never read again on
+its own, so to see the list right away (say, when the list arrived in a run read before your
+ByteMatch was upgraded), press **Re-read latest run** on the manage page.
+
 The project page then shows a thin line under the Code bar: functional C's share of the code, the
 matched code it continues from, and the confidence breakdown. The headline percentage, badges,
 the project list and pull request comments are unchanged. On the unit map, a function with
@@ -187,6 +191,9 @@ Actions:
   90 days by default).
 - **Import from decomp.dev**: copy history from decomp.dev (see the
   [migration guide](migrating-from-decomp-dev.md#4-keep-your-history)).
+- **Re-read latest run**: read the newest CI run again. Polls never re-read a commit already
+  stored, so use this when its artifact holds something that wasn't read the first time, such as a
+  functional list.
 - **Upload history**: add a saved history file to one version, and download what ByteMatch has.
 
 If the last ingest failed, the error is shown on this page.

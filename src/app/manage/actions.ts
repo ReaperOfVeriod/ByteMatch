@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { canManage, canManageRepo, currentSession } from "@/auth/session";
 import { db } from "@/db/client";
 import { projects, type Project } from "@/db/schema";
-import { findProject } from "@/db/store";
+import { findProject, latestArtifactRun } from "@/db/store";
 import { userClient } from "@/github/client";
 import { enqueue, JOBS } from "@/lib/queue";
 import { clearProblems } from "@/ingest/github";
@@ -143,6 +143,14 @@ export async function runAction(owner: string, repo: string, _: FormState, form:
     case "import":
       await enqueue(JOBS.importDecompDev, { projectId: project.id }, `import:${project.id}`);
       return { message: "Queued: importing history from decomp.dev." };
+    case "reread": {
+      // Commits already stored are never read again on their own; this reads the newest one anew,
+      // e.g. once its artifact carries something ByteMatch didn't read before (a functional list).
+      const runId = await latestArtifactRun(project.id);
+      if (!runId) return { error: "No report from a CI run to read again yet." };
+      await enqueue(JOBS.ingestRun, { projectId: project.id, runId, force: true }, `reread:${runId}`);
+      return { message: `Queued: reading CI run ${runId} again.` };
+    }
     case "retry-skipped": {
       const n = await clearProblems(project.id);
       await enqueue(JOBS.backfill, { projectId: project.id, maxRuns: 500 }, `backfill:${project.id}`);

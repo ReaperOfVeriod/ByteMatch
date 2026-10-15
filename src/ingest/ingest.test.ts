@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import { makeProject, TEST_DB, useTestDb } from "../../test/db";
-import { history, latestReport, loadFunctionalList, loadReport } from "../db/store";
+import { history, latestArtifactRun, latestReport, loadFunctionalList, loadReport } from "../db/store";
 import { readArtifact, reportFromZip, versionFromName } from "../github/artifacts";
 import { renderComment } from "../github/comments";
 import { parseReport } from "../report/parse";
@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { projects } from "../db/schema";
 import { ReportProblem } from "../lib/problems";
-import { latestProblem, pollProject } from "./github";
+import { ingestRunById, latestProblem, pollProject } from "./github";
 
 const fixture = readFileSync(new URL("../../test/fixtures/report-v2.json", import.meta.url));
 
@@ -32,6 +32,21 @@ function fakeGitHub(runs: { id: number; sha: string; time: string; artifacts: Fa
             created_at: r.time,
             head_commit: { message: `commit ${r.sha}`, timestamp: r.time },
           })),
+        },
+      };
+    }
+    if (route === "GET /repos/{owner}/{repo}/actions/runs/{run_id}") {
+      const r = runs.find((x) => x.id === params.run_id)!;
+      return {
+        data: {
+          id: r.id,
+          head_sha: r.sha,
+          head_branch: "main",
+          event: "push",
+          path: ".github/workflows/build.yml",
+          conclusion: "success",
+          created_at: r.time,
+          head_commit: { message: `commit ${r.sha}`, timestamp: r.time },
         },
       };
     }
@@ -207,6 +222,39 @@ describe.skipIf(!TEST_DB)("ingest", () => {
     // The measures are the report's own: functional C is never progress.
     expect(row.measures).toEqual(parsed.measures);
     expect((await loadFunctionalList(row))?.get(unmatched[0].name)).toBe("high");
+  });
+
+  it("re-reads the newest run on request, picking up a list stored runs didn't have", async () => {
+    const p = await makeProject();
+    const raw = JSON.parse(fixture.toString());
+    const first = raw.units[0].functions[0];
+    first.fuzzy_match_percent = 0;
+    const reportBytes = new TextEncoder().encode(JSON.stringify(raw));
+    const plain = [
+      { id: 7, sha: "ccc", time: "2026-10-03T00:00:00Z", artifacts: [{ id: 70, name: "SCES_509.16_report", data: reportBytes }] },
+    ];
+    github.client = fakeGitHub(plain);
+    await pollProject(p);
+    expect((await latestReport(p.id, "SCES_509.16"))!.functional).toBeNull();
+
+    // The same run, read again now that its artifact carries a list (as after a ByteMatch upgrade).
+    const withList = [
+      {
+        ...plain[0],
+        artifacts: [
+          {
+            id: 70,
+            name: "SCES_509.16_report",
+            files: { "report.json": reportBytes, "functional.tsv": new TextEncoder().encode(`${first.name}\tf.c\n`) },
+          },
+        ],
+      },
+    ];
+    github.client = fakeGitHub(withList);
+    expect(await pollProject(p)).toEqual([]); // a poll never reads a stored commit again
+    expect(await latestArtifactRun(p.id)).toBe(7);
+    await ingestRunById(p, 7, true);
+    expect((await latestReport(p.id, "SCES_509.16"))!.functional).toMatchObject({ functions: 1 });
   });
 
   it("tells the maintainers when the newest run has no report, without failing", async () => {
