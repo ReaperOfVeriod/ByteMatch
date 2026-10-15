@@ -19,7 +19,7 @@ export default defineConfig([
   },
   {
     // The worker and the migration script are long-running CLI processes that log to stdout.
-    files: ["src/worker/**", "src/db/migrate.ts"],
+    files: ["src/worker/**", "src/db/migrate.ts", "scripts/**"],
     rules: {
       "no-console": "off",
     },
