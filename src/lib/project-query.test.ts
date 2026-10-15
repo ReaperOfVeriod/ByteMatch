@@ -29,6 +29,20 @@ describe("project list queries", () => {
     expect(filterAndSort(rows, { q: "", platform: "", sort: "progress" }).at(-1)?.repo).toBe("new");
   });
 
+  it("sorts by functions, 30-day gain, size and newest, unknowns last", () => {
+    const more = [
+      { ...rows[0], matchedFunctions: 4520, gain30: 2.5, totalCode: 3_700_000, createdAt: "2026-10-01" },
+      { ...rows[1], matchedFunctions: 9000, gain30: 0.4, totalCode: 48_000_000, createdAt: "2026-10-12" },
+      { ...rows[2], matchedFunctions: 100, gain30: 7, totalCode: 1_000_000, createdAt: "2026-09-01" },
+      { ...rows[3] },
+    ];
+    const order = (sort: "functions" | "gain" | "size" | "newest") => filterAndSort(more, { q: "", platform: "", sort }).map((r) => r.repo);
+    expect(order("functions")).toEqual(["rac2-gc-decomp", "rac1-decomp", "tp", "new"]);
+    expect(order("gain")).toEqual(["tp", "rac1-decomp", "rac2-gc-decomp", "new"]);
+    expect(order("size")).toEqual(["rac2-gc-decomp", "rac1-decomp", "tp", "new"]);
+    expect(order("newest")).toEqual(["rac2-gc-decomp", "rac1-decomp", "tp", "new"]);
+  });
+
   it("pages and clamps past the end", () => {
     const list = Array.from({ length: 50 }, (_, i) => i);
     expect(paginate(list, 2, 24)).toMatchObject({ items: list.slice(24, 48), total: 50, page: 2, pages: 3 });

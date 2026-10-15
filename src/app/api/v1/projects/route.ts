@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
     ...p,
     codePercent: p.measures ? Number(p.measures.matched_code_percent) : null,
     updated: p.commit_timestamp ? new Date(p.commit_timestamp).toISOString() : null,
+    matchedFunctions: p.measures ? Number(p.measures.matched_functions) : null,
+    totalCode: p.measures ? Number(p.measures.total_code) : null,
+    gain30: p.gain_30d === null ? null : Number(p.gain_30d),
+    createdAt: new Date(p.created_at).toISOString(),
   }));
   const page = paginate(filterAndSort(rows, params), params.page, perPage);
 
@@ -46,6 +50,7 @@ export async function GET(request: NextRequest) {
       image_url: p.image_url,
       version: p.version,
       timestamp: p.updated,
+      gain_30d: p.gain30,
       measures: p.measures,
     })),
     {

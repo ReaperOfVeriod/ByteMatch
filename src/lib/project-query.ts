@@ -3,7 +3,18 @@
  * projects API share one behaviour and it can be tested without a database.
  */
 
-export const SORTS = ["updated", "progress", "name"] as const;
+export const SORTS = ["updated", "progress", "functions", "gain", "size", "newest", "name"] as const;
+
+/** Labels for the sort control, in the order it lists them. Most recently updated is the default. */
+export const SORT_LABELS: Record<Sort, string> = {
+  updated: "Recently updated",
+  progress: "Most matched",
+  functions: "Most functions matched",
+  gain: "Biggest gain (30 days)",
+  size: "Largest codebase",
+  newest: "Newest added",
+  name: "Name (A–Z)",
+};
 export type Sort = (typeof SORTS)[number];
 
 export interface ListParams {
@@ -20,6 +31,10 @@ export interface Listable {
   platform: string | null;
   codePercent: number | null;
   updated: string | null;
+  matchedFunctions?: number | null;
+  totalCode?: number | null;
+  gain30?: number | null;
+  createdAt?: string | null;
 }
 
 export const DEFAULT_PARAMS: ListParams = { q: "", platform: "", sort: "updated", page: 1 };
@@ -55,10 +70,26 @@ export function matches(row: Listable, q: string): boolean {
 export function filterAndSort<T extends Listable>(rows: T[], p: Pick<ListParams, "q" | "platform" | "sort">): T[] {
   const list = rows.filter((r) => (!p.platform || (r.platform ?? "").toLowerCase() === p.platform) && (!p.q || matches(r, p.q)));
   const byName = (a: T, b: T) => a.name.localeCompare(b.name);
+  // Projects without a value for the chosen measure go last; ties fall back to most recently updated.
+  const num = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? -Infinity : v);
+  const byUpdated = (a: T, b: T) => (b.updated ?? "").localeCompare(a.updated ?? "") || byName(a, b);
   return list.sort((a, b) => {
-    if (p.sort === "name") return byName(a, b);
-    if (p.sort === "progress") return (b.codePercent ?? -1) - (a.codePercent ?? -1) || byName(a, b);
-    return (b.updated ?? "").localeCompare(a.updated ?? "") || byName(a, b);
+    switch (p.sort) {
+      case "name":
+        return byName(a, b);
+      case "progress":
+        return num(b.codePercent) - num(a.codePercent) || byUpdated(a, b);
+      case "functions":
+        return num(b.matchedFunctions) - num(a.matchedFunctions) || byUpdated(a, b);
+      case "gain":
+        return num(b.gain30) - num(a.gain30) || byUpdated(a, b);
+      case "size":
+        return num(b.totalCode) - num(a.totalCode) || byUpdated(a, b);
+      case "newest":
+        return (b.createdAt ?? "").localeCompare(a.createdAt ?? "") || byName(a, b);
+      default:
+        return byUpdated(a, b);
+    }
   });
 }
 

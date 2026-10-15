@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { listQuery, type ListParams, type Sort } from "@/lib/project-query";
+import { listQuery, SORT_LABELS, SORTS, type ListParams, type Sort } from "@/lib/project-query";
 import { Search } from "./ui/icons";
 import { Select } from "./ui/select";
 
@@ -64,9 +64,11 @@ export function ProjectFilters({ params, platforms }: { params: ListParams; plat
         ))}
       </Select>
       <Select value={params.sort} onChange={(e) => go({ sort: e.target.value as Sort })} aria-label="Sort by">
-        <option value="updated">Recently updated</option>
-        <option value="progress">Most matched</option>
-        <option value="name">Name</option>
+        {SORTS.map((s) => (
+          <option key={s} value={s}>
+            {SORT_LABELS[s]}
+          </option>
+        ))}
       </Select>
     </div>
   );

@@ -202,8 +202,13 @@ export async function projectIndex() {
     measures: Measures | null;
     commit_timestamp: string | null;
     image_url: string | null;
+    created_at: string;
+    /** Matched-code percentage points gained over the last 30 days (since the first report if newer). */
+    gain_30d: number | null;
   }>(dsql`
-    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, r.version, r.measures, r.commit_timestamp
+    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, p.created_at,
+           r.version, r.measures, r.commit_timestamp,
+           (r.measures->>'matched_code_percent')::float8 - (b.measures->>'matched_code_percent')::float8 as gain_30d
     from ${projects} p
     left join lateral (
       select version, measures, commit_timestamp from ${reports} r
@@ -212,6 +217,14 @@ export async function projectIndex() {
           select version from ${reports} x where x.project_id = p.id order by commit_timestamp desc limit 1))
       order by commit_timestamp desc, id desc limit 1
     ) r on true
+    left join lateral (
+      select measures from ${reports} o
+      where o.project_id = p.id and o.version = r.version
+      order by (o.commit_timestamp <= now() - interval '30 days') desc,
+               case when o.commit_timestamp <= now() - interval '30 days' then o.commit_timestamp end desc nulls last,
+               o.commit_timestamp asc
+      limit 1
+    ) b on true
     where p.enabled
     order by lower(p.name)`);
   return [...rows];

@@ -13,6 +13,10 @@ export interface ProjectRow {
   functions: { done: number; total: number } | null;
   updated: string | null;
   image: string | null;
+  matchedFunctions?: number | null;
+  totalCode?: number | null;
+  gain30?: number | null;
+  createdAt?: string | null;
 }
 
 const fmt = new Intl.NumberFormat("en-US");
@@ -64,6 +68,11 @@ export function ProjectList({ rows, empty }: { rows: ProjectRow[]; empty: React.
                 <>
                   <ProgressBar value={r.codePercent} label={`${r.name}: code matched`} />
                   <span className="w-16 shrink-0 text-right font-mono text-sm">{r.codePercent.toFixed(2)}%</span>
+                  {r.gain30 && r.gain30 >= 0.01 ? (
+                    <span className="hidden shrink-0 font-mono text-xs text-good md:inline" title="Matched code gained in the last 30 days">
+                      +{r.gain30.toFixed(2)}
+                    </span>
+                  ) : null}
                 </>
               )}
             </div>
