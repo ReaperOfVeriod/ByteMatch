@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { canManage, currentSession } from "@/auth/session";
 import { findProject, projectVersions } from "@/db/store";
 import { config } from "@/lib/config";
+import { redact } from "@/lib/errors";
 import { PLATFORMS } from "@/lib/platforms";
 import { listTokens } from "@/lib/tokens";
 import { deleteToken, newToken, runAction, setImageUrl, updateProject } from "../../actions";
@@ -69,7 +70,7 @@ export default async function ManageProject({ params, searchParams }: Params) {
       ) : null}
       {project.lastError ? (
         <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
-          Last ingest failed{project.lastErrorAt ? ` (${fmtDate.format(project.lastErrorAt)})` : ""}: {project.lastError}
+          Last ingest failed{project.lastErrorAt ? ` (${fmtDate.format(project.lastErrorAt)})` : ""}: {redact(project.lastError)}
         </p>
       ) : null}
 

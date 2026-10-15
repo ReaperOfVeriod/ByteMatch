@@ -5,6 +5,7 @@ import { projects, reports, type Project } from "../db/schema";
 import { storeReport } from "../db/store";
 import { downloadReport, fromWorkflow, getRun, listRuns, reportArtifacts, type WorkflowRun } from "../github/artifacts";
 import { repoClient } from "../github/client";
+import { redact } from "../lib/errors";
 import { parseReport, splitReport } from "../report/parse";
 import type { Report } from "../report/types";
 
@@ -66,7 +67,7 @@ async function remember(project: Project, patch: Partial<Project>) {
 export async function recordError(projectId: number, error: unknown) {
   await db()
     .update(projects)
-    .set({ lastError: error instanceof Error ? error.message : String(error), lastErrorAt: new Date() })
+    .set({ lastError: redact(error instanceof Error ? error.message : String(error)), lastErrorAt: new Date() })
     .where(eq(projects.id, projectId));
 }
 
