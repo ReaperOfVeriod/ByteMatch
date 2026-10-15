@@ -116,7 +116,10 @@ function ProgressSection({
   linked,
   matched,
   fuzzy,
+  tone = "code",
 }: {
+  /** Code is green; data is blue, so the two sections read apart at a glance. */
+  tone?: "code" | "data";
   label: string;
   total: number;
   linkedBytes: number;
@@ -126,7 +129,8 @@ function ProgressSection({
   fuzzy?: number;
 }) {
   const stripes = (a: string, b: string) => `repeating-linear-gradient(135deg, ${a} 0 7px, ${b} 7px 14px)`;
-  const done = stripes("var(--done)", "#25863d");
+  const solid = tone === "data" ? "var(--series-1)" : "var(--done)";
+  const done = tone === "data" ? stripes("var(--series-1)", "#2b6dbf") : stripes("var(--done)", "#25863d");
   const faint = stripes("#3b4a63", "#2c3850");
   const of = (bytes: number) => `${fmtInt.format(Math.round(bytes))} of ${fmtInt.format(total)} bytes (${formatBytes(Math.round(bytes))})`;
   const l = Math.min(100, linked);
@@ -138,7 +142,7 @@ function ProgressSection({
       label: "Fully linked",
       from: 0,
       width: l,
-      background: "var(--done)",
+      background: solid,
       detail: `${linked.toFixed(2)}% · ${of(linkedBytes)}`,
     },
     { key: "matched", label: "Matched", from: l, width: mt, background: done, detail: `${matched.toFixed(2)}% · ${of(matchedBytes)}` },
@@ -333,6 +337,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                 {m.total_data > 0 ? (
                   <ProgressSection
                     label="Data"
+                    tone="data"
                     total={m.total_data}
                     linkedBytes={m.complete_data}
                     matchedBytes={m.matched_data}
