@@ -10,6 +10,7 @@ const RESERVED = new Set([
   "franchises",
   "activity",
   "admin",
+  "theme",
   "_next",
   "healthz",
   "favicon.ico",
