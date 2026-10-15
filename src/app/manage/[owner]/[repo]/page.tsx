@@ -142,7 +142,7 @@ export default async function ManageProject({ params, searchParams }: Params) {
           </Link>
         </p>
         <ActionForm action={uploadHistory.bind(null, project.owner, project.repo)} submit="Upload history">
-          <div className="grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
             <Field label="Version">
               <input
                 name="version"
@@ -165,7 +165,7 @@ export default async function ManageProject({ params, searchParams }: Params) {
                 name="file"
                 required
                 accept=".json,.gz,application/json,application/gzip"
-                className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-surface-3 file:px-2.5 file:py-1 file:text-sm file:text-ink`}
+                className={`${inputClass} min-w-0 file:mr-3 file:rounded-md file:border-0 file:bg-surface-3 file:px-2.5 file:py-1 file:text-sm file:text-ink`}
               />
             </Field>
           </div>

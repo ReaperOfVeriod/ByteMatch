@@ -57,8 +57,12 @@ export function ThemePicker() {
         <Swatch size={16} />
       </button>
       {open ? (
-        <div role="menu" aria-label="Theme" className="panel absolute top-10 right-0 z-40 w-[min(34rem,calc(100vw-2rem))] p-1.5 text-sm">
-          <div className="grid max-h-[min(70vh,30rem)] gap-1 overflow-y-auto sm:grid-cols-2">
+        <div
+          role="menu"
+          aria-label="Theme" // On phones the menu spans the screen under the header instead of hanging off the button.
+          className="panel fixed inset-x-4 top-16 z-40 p-1.5 text-sm sm:absolute sm:inset-x-auto sm:top-10 sm:right-0 sm:w-[34rem]"
+        >
+          <div className="grid max-h-[calc(100dvh-9rem)] gap-1 overflow-y-auto overscroll-contain sm:max-h-[min(70vh,30rem)] sm:grid-cols-2">
             <div role="group" aria-label="Colours">
               <div className={heading}>Colours</div>
               {PRESET_IDS.map((id) =>
