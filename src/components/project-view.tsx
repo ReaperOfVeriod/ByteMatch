@@ -454,7 +454,22 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
             </div>
           </Side>
 
-          <Side title="History" aside={`${fmt.format(points.length)} commits`}>
+          <Side
+            title="History"
+            aside={
+              <>
+                {fmt.format(points.length)} commits ·{" "}
+                <a
+                  href={`${base}.json?mode=history&version=${encodeURIComponent(r.version)}`}
+                  download={`${project.repo}-${r.version}-history.json`}
+                  className="text-accent hover:underline"
+                  title="Every commit's measures as JSON (the format decomp.dev used), to keep or upload elsewhere"
+                >
+                  Download
+                </a>
+              </>
+            }
+          >
             <HistoryChart points={points} />
           </Side>
 

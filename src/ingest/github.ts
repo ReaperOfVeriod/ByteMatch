@@ -27,7 +27,8 @@ async function storedVersions(projectId: number, sha: string): Promise<Set<strin
     .select({ version: reports.version, source: reports.source })
     .from(reports)
     .where(and(eq(reports.projectId, projectId), eq(reports.commitSha, sha)));
-  return new Set(rows.filter((r) => r.source !== "import").map((r) => r.version));
+  // Measures-only rows (imported or uploaded history) are filled in with the real report when CI has it.
+  return new Set(rows.filter((r) => r.source !== "import" && r.source !== "history").map((r) => r.version));
 }
 
 /** Reads one run's report artifacts into the database. */

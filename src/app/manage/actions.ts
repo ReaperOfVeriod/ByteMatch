@@ -14,6 +14,7 @@ import { checkImageUrl } from "@/lib/images";
 import { registrationOpen } from "@/lib/settings";
 import { checkDiscordUrl } from "@/lib/links";
 import { createToken, revokeToken } from "@/lib/tokens";
+import { checkVersion, HistoryError, MAX_HISTORY_BYTES, parseHistory, storeHistory } from "@/ingest/history";
 
 export interface FormState {
   error?: string;
@@ -168,4 +169,27 @@ export async function setImageUrl(owner: string, repo: string, kind: "cover" | "
   revalidatePath("/");
   const what = kind === "icon" ? "Icon" : "Cover";
   return { message: checked.url ? `${what} saved.` : `${what} removed.` };
+}
+
+/** Adds an uploaded history file (decomp.dev's mode=history JSON) to one version's history. */
+export async function uploadHistory(owner: string, repo: string, _: FormState, form: FormData): Promise<FormState> {
+  const project = await managed(owner, repo);
+  const version = checkVersion(String(form.get("version") ?? ""));
+  if (!version) return { error: "Enter the version this history belongs to (e.g. GLMJ01, us)." };
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a history file." };
+  if (file.size > MAX_HISTORY_BYTES) return { error: "That file is too large." };
+  try {
+    const rows = parseHistory(new Uint8Array(await file.arrayBuffer()));
+    const { added, skipped } = await storeHistory(project, version, rows);
+    revalidatePath(`/manage/${owner}/${repo}`);
+    revalidatePath(`/${owner}/${repo}`);
+    const n = (k: number) => k.toLocaleString("en-US");
+    return {
+      message: `Added ${n(added)} commit${added === 1 ? "" : "s"} to ${version}${skipped ? `; ${n(skipped)} already had data and were left as they were` : ""}.`,
+    };
+  } catch (e) {
+    if (e instanceof HistoryError) return { error: e.message };
+    throw e;
+  }
 }

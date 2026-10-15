@@ -1,6 +1,10 @@
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // History files are uploaded from the manage page (src/ingest/history.ts caps them at 32 MiB).
+    serverActions: { bodySizeLimit: "33mb" },
+  },
   // Native or Postgres-bound packages stay plain Node requires instead of being bundled.
   serverExternalPackages: ["@resvg/resvg-js", "pg-boss", "postgres"],
   // Badge text is measured and drawn with these fonts at run time.

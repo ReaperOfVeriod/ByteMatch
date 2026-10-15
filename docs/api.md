@@ -271,6 +271,49 @@ curl --fail -X POST \
   "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA&commit_message=$MSG"
 ```
 
+## History upload
+
+```
+POST /api/v1/projects/{owner}/{repo}/history?version={version}
+```
+
+Adds commits to one version's history from a history file, the JSON served at
+`/{owner}/{repo}.json?mode=history` by ByteMatch and by decomp.dev. Use it to keep history saved
+from decomp.dev, or to move a project between instances. The manage page has the same upload as a
+form.
+
+**Authentication.** A project upload token, as for the upload API above.
+
+**Body.** A JSON array, optionally gzip-compressed (at most 32 MiB unpacked):
+
+```json
+[
+  {
+    "timestamp": "2026-10-14T23:02:04Z",
+    "commit_sha": "9a8143337c49794a9b6588d253f79683ad1484ce",
+    "commit_message": "Match 38 more functions",
+    "measures": { "matched_code_percent": 86.06, "total_code": 3712808, "...": "..." }
+  }
+]
+```
+
+Measure names are objdiff's; missing ones count as zero. History entries carry measures only, so
+those commits get progress numbers and chart points but no unit or function lists. A commit that
+already has data (from CI, an upload or an earlier import) is left unchanged, so repeating an
+upload is harmless.
+
+**Response:**
+
+```json
+{ "version": "us", "added": 1874, "skipped": 12, "url": "https://bytematch.dev/<owner>/<repo>" }
+```
+
+```sh
+curl --fail -X POST -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
+  --data-binary @rac1-decomp-us-history.json \
+  "https://bytematch.dev/api/v1/projects/OpenRAC/rac1-decomp/history?version=us"
+```
+
 ## Health check
 
 ```

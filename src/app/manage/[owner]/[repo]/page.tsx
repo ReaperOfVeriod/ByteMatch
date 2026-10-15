@@ -6,7 +6,7 @@ import { config } from "@/lib/config";
 import { redact } from "@/lib/errors";
 import { PLATFORMS } from "@/lib/platforms";
 import { listTokens } from "@/lib/tokens";
-import { deleteToken, newToken, runAction, setImageUrl, updateProject } from "../../actions";
+import { deleteToken, newToken, runAction, setImageUrl, updateProject, uploadHistory } from "../../actions";
 import { ImageForm } from "../../image-form";
 import { Select } from "@/components/ui/select";
 import { ChevronRight } from "@/components/ui/icons";
@@ -105,6 +105,65 @@ export default async function ManageProject({ params, searchParams }: Params) {
             </>
           ) : null}
         </p>
+      </Card>
+
+      <Card title="History">
+        <p className="mb-4 text-sm text-ink-2">
+          Upload a history file to fill in progress from before ByteMatch tracked this project: the JSON decomp.dev served at{" "}
+          <code className="font-mono text-xs break-all">
+            decomp.dev/{project.owner}/{project.repo}.json?mode=history&amp;version=…
+          </code>
+          , one file per version. Commits that already have data are left alone, so uploading twice is harmless.{" "}
+          <Link href="/docs/migrating-from-decomp-dev#4-keep-your-history" className="text-accent">
+            How to save it
+          </Link>
+        </p>
+        <ActionForm action={uploadHistory.bind(null, project.owner, project.repo)} submit="Upload history">
+          <div className="grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+            <Field label="Version">
+              <input
+                name="version"
+                required
+                list="version-names"
+                defaultValue={project.defaultVersion ?? versions[0]?.version ?? ""}
+                placeholder="GLMJ01"
+                className={inputClass}
+                autoComplete="off"
+              />
+              <datalist id="version-names">
+                {versions.map((v) => (
+                  <option key={v.version} value={v.version} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="History file" hint=".json or .json.gz">
+              <input
+                type="file"
+                name="file"
+                required
+                accept=".json,.gz,application/json,application/gzip"
+                className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-surface-3 file:px-2.5 file:py-1 file:text-sm file:text-ink`}
+              />
+            </Field>
+          </div>
+        </ActionForm>
+        {versions.length ? (
+          <p className="mt-4 text-xs text-ink-3">
+            Download what ByteMatch has:{" "}
+            {versions.map((v, i) => (
+              <span key={v.version}>
+                {i ? ", " : ""}
+                <a
+                  className="text-accent"
+                  href={`/${project.owner}/${project.repo}.json?mode=history&version=${encodeURIComponent(v.version)}`}
+                  download={`${project.repo}-${v.version}-history.json`}
+                >
+                  {v.version}
+                </a>
+              </span>
+            ))}
+          </p>
+        ) : null}
       </Card>
 
       <Card title="Settings">

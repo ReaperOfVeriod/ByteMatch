@@ -59,25 +59,37 @@ export async function storeReport(input: StoreInput): Promise<ReportRow> {
   });
 }
 
-/** History rows that carry only measures (decomp.dev imports); never overwrite a real report. */
-export async function storeMeasuresOnly(project: Project, version: string, rows: { commit: CommitInfo; measures: Measures }[]) {
-  if (rows.length === 0) return 0;
-  const inserted = await db()
-    .insert(reports)
-    .values(
-      rows.map((r) => ({
-        projectId: project.id,
-        version,
-        commitSha: r.commit.sha,
-        commitMessage: r.commit.message ?? null,
-        commitTimestamp: r.commit.timestamp,
-        source: "import",
-        measures: r.measures,
-      })),
-    )
-    .onConflictDoNothing()
-    .returning({ id: reports.id });
-  return inserted.length;
+/**
+ * History rows that carry only measures (decomp.dev imports and uploaded history files); never
+ * overwrites a commit that already has data. Returns how many rows were new.
+ */
+export async function storeMeasuresOnly(
+  project: Project,
+  version: string,
+  rows: { commit: CommitInfo; measures: Measures }[],
+  source: "import" | "history" = "import",
+) {
+  let added = 0;
+  // In chunks, to stay well under Postgres' 65,535 parameters per statement on long histories.
+  for (let i = 0; i < rows.length; i += 2000) {
+    const inserted = await db()
+      .insert(reports)
+      .values(
+        rows.slice(i, i + 2000).map((r) => ({
+          projectId: project.id,
+          version,
+          commitSha: r.commit.sha,
+          commitMessage: r.commit.message ?? null,
+          commitTimestamp: r.commit.timestamp,
+          source,
+          measures: r.measures,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning({ id: reports.id });
+    added += inserted.length;
+  }
+  return added;
 }
 
 /** Recently decoded full reports, by blob id (blobs never change, so entries never go stale). */
