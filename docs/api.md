@@ -77,11 +77,31 @@ curl https://bytematch.dev/OpenRAC/rac1-decomp.json
     "complete_units": 310
   },
   "report_versions": ["SCES_509.16"],
-  "report_categories": [{ "id": "game", "name": "Game", "measures": { "...": "same 16 fields" } }]
+  "report_categories": [{ "id": "game", "name": "Game", "measures": { "...": "same 16 fields" } }],
+  "functional": {
+    "code": 370968,
+    "code_percent": 9.99,
+    "functions": 389,
+    "by_confidence": {
+      "high": { "functions": 43, "code": 24648 },
+      "medium": { "functions": 111, "code": 103432 },
+      "low": { "functions": 0, "code": 0 },
+      "unrated": { "functions": 235, "code": 242888 }
+    },
+    "already_matched": 45,
+    "not_found": 0
+  }
 }
 ```
 
 The values above are illustrative. `measures` always contains the 16 objdiff measures shown.
+
+`functional` is ByteMatch's own addition, after decomp.dev's fields: the project's
+[functional C](getting-started.md#7-functional-c-optional), sized from the report. It is never
+progress, so no measure includes it. It is `null` when the project sends no functional list. With
+`?category=`, it holds only `code`, `code_percent` and `functions` for that category.
+`already_matched` counts listed functions that are matched by now (the list can drop them), and
+`not_found` listed names the report doesn't have.
 
 ### `mode=shield`
 
@@ -218,6 +238,10 @@ project's manage page. The token is shown once; only its hash is stored. Revoke 
 `Content-Encoding: gzip`. Reports larger than the instance's `MAX_REPORT_BYTES` (256 MiB by
 default) are rejected.
 
+Or a zip laid out like a CI artifact: the report, and optionally a
+[functional list](#functional-list) as `functional.json` or `functional.tsv`. If the list can't be
+read, the report is still stored and the response says why in `functional_error`.
+
 **Response.** JSON listing the versions stored and the project page:
 
 ```json
@@ -270,6 +294,37 @@ curl --fail -X POST \
   --data-binary @build/GALE01/report.json \
   "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA&commit_message=$MSG"
 ```
+
+## Functional list
+
+Optional. A file beside the report that names the functions the project has
+[functional C](getting-started.md#7-functional-c-optional) for. Put it in the same artifact as
+the report (or the same zip, for the upload API), named `functional.json` or `functional.tsv`.
+
+JSON:
+
+```json
+{
+  "functions": [{ "name": "func_00115248", "confidence": "high" }, { "name": "func_001151B4" }]
+}
+```
+
+`name` is the function's name as the report has it (its demangled name works too). `confidence`
+is `high`, `medium` or `low`; anything else, or none, counts as unrated. A bare array of objects
+or of names also works.
+
+TSV: one function per line, the name in the first column; a third column, if present, is the
+confidence. Lines starting with `#` are comments. `nonmatching/functional.tsv` in OpenRAC's
+decompilations (name, then file) works as it is.
+
+ByteMatch takes each function's size from the report and counts only functions that are not
+matched, so entries that have since been matched don't inflate the figure. The figure never
+changes a measure, a badge or the ordering of projects.
+
+The project page reads a unit's functions from
+`GET /api/v1/projects/{owner}/{repo}/units?unit=<unit>[&version=…][&commit=<sha>]`; each unmatched
+function on the list there carries `"functional": "high" | "medium" | "low" | "unrated"`, and every
+other function `null`.
 
 ## History upload
 

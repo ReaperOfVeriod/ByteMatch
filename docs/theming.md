@@ -79,20 +79,21 @@ without JavaScript. `src/lib/theme.test.ts` fails if those values and `THEMES.sl
 Declared under the slots in `globals.css`. Each is a `color-mix()` or a relative colour of a slot.
 They recompute whenever a theme is applied, so nothing at runtime needs to know they exist.
 
-| Token                            | Value                                                | For                                     |
-| -------------------------------- | ---------------------------------------------------- | --------------------------------------- |
-| `--surface-2`                    | `surface` 68% over `line`                            | Controls, rows, raised areas            |
-| `--surface-3`, `--track`         | `surface` 34% over `line`                            | Pressed and selected states; bar tracks |
-| `--line-strong`                  | `line` 79% over `dim`, in OKLab                      | Hovered borders, tooltips               |
-| `--text-2`                       | `text` 40% over `dim`                                | Secondary prose                         |
-| `--idle`                         | `surface` 70% over `dim`                             | Units with nothing matched              |
-| `--code-bg`                      | `bg` 50% over `surface`                              | Code blocks                             |
-| `--ring`                         | `accent` at 55%                                      | Focus outlines                          |
-| `--accent-strong`                | `accent`, 0.9× lightness and 1.1× chroma in OKLCH    | Primary buttons, checkboxes             |
-| `--on-accent`                    | White or black, whichever reads on `--accent-strong` | Text on primary buttons                 |
-| `--done-deep`, `--series-1-deep` | The slot, 80–82% over black                          | Hatching on progress bars               |
-| `--tile-done`, `--tile-low/high` | `done` and `partial` in OKLCH                        | The unit grid                           |
-| `--seam`, `--seam-strong`        | `bg` at 75% and 90%                                  | Seams between unit tiles and groups     |
+| Token                            | Value                                                | For                                                         |
+| -------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| `--surface-2`                    | `surface` 68% over `line`                            | Controls, rows, raised areas                                |
+| `--surface-3`, `--track`         | `surface` 34% over `line`                            | Pressed and selected states; bar tracks                     |
+| `--line-strong`                  | `line` 79% over `dim`, in OKLab                      | Hovered borders, tooltips                                   |
+| `--text-2`                       | `text` 40% over `dim`                                | Secondary prose                                             |
+| `--idle`                         | `surface` 70% over `dim`                             | Units with nothing matched                                  |
+| `--code-bg`                      | `bg` 50% over `surface`                              | Code blocks                                                 |
+| `--ring`                         | `accent` at 55%                                      | Focus outlines                                              |
+| `--accent-strong`                | `accent`, 0.9× lightness and 1.1× chroma in OKLCH    | Primary buttons, checkboxes                                 |
+| `--on-accent`                    | White or black, whichever reads on `--accent-strong` | Text on primary buttons                                     |
+| `--done-deep`, `--series-1-deep` | The slot, 80–82% over black                          | Hatching on progress bars                                   |
+| `--tile-done`, `--tile-low/high` | `done` and `partial` in OKLCH                        | The unit grid                                               |
+| `--seam`, `--seam-strong`        | `bg` at 75% and 90%                                  | Seams between unit tiles and groups                         |
+| `--functional`                   | `dim` 85% over `surface`                             | Functional C's hatching: a neutral, since it isn't progress |
 
 The percentages were fitted so Slate's derived values land within about one RGB unit of the
 hand-picked colours ByteMatch shipped with. Changing a formula changes every theme, so look at

@@ -152,6 +152,24 @@ missing series name), or start a new page. For names that mean one game but look
 such as regional titles, the site's admins can merge them; projects using either name then share
 one page, and the merged name's old address redirects to it.
 
+## 7. Functional C (optional)
+
+Some projects keep C for functions they haven't matched, which does what the original does without
+compiling to the same bytes: for a native port, say, while matching carries on. It is not matched
+code and never counts as progress. ByteMatch can still show how much of the game it covers, if you
+send a list of those functions with the report:
+
+1. Add `functional.json` (or `functional.tsv`) to the same artifact as `report.json`. The
+   [format](api.md#functional-list) is a list of function names, each with an optional confidence
+   (`high`, `medium` or `low`).
+2. ByteMatch sizes each listed function from the report and leaves out any that are matched by now.
+
+The project page then shows a thin line under the Code bar: functional C's share of the code, the
+matched code it continues from, and the confidence breakdown. The headline percentage, badges,
+the project list and pull request comments are unchanged. On the unit map, a function with
+functional C says so, with its confidence. The manage page says how many listed functions are
+already matched, so the list can drop them.
+
 ## Manage page reference
 
 Signed-in admins of the repository can change:
