@@ -124,6 +124,16 @@ export async function defaultVersion(project: Project): Promise<string | undefin
   return (await projectVersions(project.id))[0]?.version;
 }
 
+/** Whether any of the project's history came from a decomp.dev import. */
+export async function hasImportedHistory(projectId: number): Promise<boolean> {
+  const [row] = await db()
+    .select({ id: reports.id })
+    .from(reports)
+    .where(and(eq(reports.projectId, projectId), eq(reports.source, "import")))
+    .limit(1);
+  return !!row;
+}
+
 export async function latestReport(projectId: number, version: string): Promise<ReportRow | undefined> {
   const [row] = await db()
     .select()
