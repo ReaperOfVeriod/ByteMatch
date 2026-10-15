@@ -133,9 +133,24 @@ referrer. If a link stops working, the page simply shows no image.
 Under **Settings**, name the **game** the project decompiles, its **franchise** and its release
 **year**. Projects naming the same game share a page at `/games/<game>` (regional builds and
 parallel efforts side by side, with one progress chart), and games naming the same franchise are
-listed together at `/franchises/<franchise>`. Spelling differences in case, `&`/`and` and
-punctuation don't matter, and the form suggests names other projects already use. Leave them empty
-to keep the project out of the games pages; it stays in the main list either way.
+listed together at `/franchises/<franchise>`. Leave them empty to keep the project out of the games
+pages; it stays in the main list either way.
+
+Names don't have to be spelled exactly alike to group. These all count as one game:
+
+- case, accents and punctuation: `Pokémon Colosseum` and `pokemon colosseum`
+- `&`, `+` and `and`: `Ratchet & Clank` and `Ratchet and Clank`
+- a leading "The": `The Legend of Zelda` and `Legend of Zelda`
+- region tags in brackets or at the end: `Super Mario 64 (USA)`, `Super Mario 64 [PAL]`
+- Roman numerals and digits: `Final Fantasy VII` and `Final Fantasy 7` (II to XX; a bare X is left
+  alone, since Mega Man X isn't Mega Man 10)
+
+Subtitles and sequel numbers always count, so `Paper Mario` and `Paper Mario: The Thousand-Year
+Door` stay apart. While you type, the field says what the name will do: join an existing game page
+(and how it's shown there), probably mean one that exists ("Did you mean …?", for a typo or a
+missing series name), or start a new page. For names that mean one game but look nothing alike,
+such as regional titles, the site's admins can merge them; projects using either name then share
+one page, and the merged name's old address redirects to it.
 
 ## Manage page reference
 
