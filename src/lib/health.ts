@@ -7,10 +7,24 @@ import { getSettings } from "./settings";
 export interface Health {
   worker: { lastBeat: string | null; alive: boolean };
   jobs: { name: string; state: string; count: number }[];
-  failedRecent: { id: string; name: string; data: unknown; output: unknown; createdOn: string; completedOn: string | null }[];
+  /** Failed jobs, identical ones (same job, project and error) grouped together, newest first. */
+  failedGroups: FailedGroup[];
   githubToken: { configured: boolean; remaining?: number; limit?: number; resetsAt?: string; error?: string };
   app: { configured: boolean; webhooks: boolean; signIn: boolean };
   syncPaused: boolean;
+}
+
+export interface FailedGroup {
+  name: string;
+  /** The job's data, from its newest failure. */
+  data: unknown;
+  message: string;
+  count: number;
+  firstAt: string;
+  lastAt: string;
+  /** Job ids, newest first (at most 500). */
+  ids: string[];
+  project: { owner: string; repo: string; name: string } | null;
 }
 
 /** Everything the admin overview shows, gathered in parallel. Nothing here reveals the token itself. */
@@ -25,8 +39,29 @@ export async function health(): Promise<Health> {
       .then((r) => [...r])
       .catch(() => []),
     db()
-      .execute<{ id: string; name: string; data: unknown; output: unknown; created_on: string; completed_on: string | null }>(
-        sql`select id::text, name, data, output, created_on, completed_on from pgboss.job where state = 'failed' order by created_on desc limit 50`,
+      .execute<{
+        name: string;
+        data: unknown;
+        message: string;
+        count: number;
+        first_at: string;
+        last_at: string;
+        ids: string[];
+        owner: string | null;
+        repo: string | null;
+        project_name: string | null;
+      }>(
+        sql`select j.name, (array_agg(j.data order by j.created_on desc))[1] as data,
+              coalesce(j.output->>'message', j.output::text, '') as message, count(*)::int as count,
+              min(j.created_on) as first_at, max(coalesce(j.completed_on, j.created_on)) as last_at,
+              (array_agg(j.id::text order by j.created_on desc))[1:500] as ids,
+              p.owner, p.repo, p.name as project_name
+            from pgboss.job j
+            left join projects p on p.id = case when j.data->>'projectId' ~ '^[0-9]+$' then (j.data->>'projectId')::int end
+            where j.state = 'failed'
+            group by j.name, j.data->>'projectId', 3, p.owner, p.repo, p.name
+            order by last_at desc
+            limit 50`,
       )
       .then((r) => [...r])
       .catch(() => []),
@@ -45,13 +80,15 @@ export async function health(): Promise<Health> {
   return {
     worker: { lastBeat: beat, alive: !!beat && Date.now() - new Date(beat).getTime() < 3 * 60_000 },
     jobs,
-    failedRecent: failed.map((f) => ({
-      id: f.id,
+    failedGroups: failed.map((f) => ({
       name: f.name,
       data: f.data,
-      output: f.output,
-      createdOn: new Date(f.created_on).toISOString(),
-      completedOn: f.completed_on ? new Date(f.completed_on).toISOString() : null,
+      message: f.message,
+      count: f.count,
+      firstAt: new Date(f.first_at).toISOString(),
+      lastAt: new Date(f.last_at).toISOString(),
+      ids: f.ids,
+      project: f.owner && f.repo ? { owner: f.owner, repo: f.repo, name: f.project_name ?? f.repo } : null,
     })),
     githubToken: { configured: !!c.GITHUB_TOKEN, ...(rate ?? {}) },
     app: { configured: githubAppConfigured(), webhooks: !!c.GITHUB_WEBHOOK_SECRET, signIn: signInConfigured() },

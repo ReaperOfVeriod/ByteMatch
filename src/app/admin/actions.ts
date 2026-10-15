@@ -122,12 +122,13 @@ export async function retryJob(form: FormData) {
   revalidatePath("/admin/jobs");
 }
 
+/** Discards one failed job, or a group of identical ones (ids comma-separated). */
 export async function discardJob(form: FormData) {
   const actor = await requireAdmin();
   const name = String(form.get("name")) as JobName;
-  const id = String(form.get("id"));
-  await (await boss()).deleteJob(name, id);
-  await audit(actor, "discard-job", name, { id });
+  const ids = String(form.get("id")).split(",").filter(Boolean);
+  await (await boss()).deleteJob(name, ids);
+  await audit(actor, "discard-job", name, ids.length === 1 ? { id: ids[0] } : { count: ids.length });
   revalidatePath("/admin/jobs");
 }
 

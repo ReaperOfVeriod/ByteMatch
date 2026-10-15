@@ -1,14 +1,10 @@
+import Link from "next/link";
 import { redact } from "@/lib/errors";
+import { explain, problemCode } from "@/lib/problems";
 import { health } from "@/lib/health";
 import { discardJob, retryJob } from "../actions";
 import { ActionButton, ConfirmButton } from "../ui";
 import { LocalTime } from "@/components/local-time";
-
-function errorText(output: unknown): string {
-  if (!output || typeof output !== "object") return "";
-  const o = output as { message?: string; stack?: string };
-  return redact(o.message ?? JSON.stringify(output));
-}
 
 export default async function AdminJobs() {
   const h = await health();
@@ -50,27 +46,54 @@ export default async function AdminJobs() {
       </section>
 
       <section className="panel overflow-hidden">
-        <h2 className="border-b border-line px-5 py-3.5 text-sm font-semibold">Failed jobs (latest 50)</h2>
+        <h2 className="border-b border-line px-5 py-3.5 text-sm font-semibold">
+          Failed jobs <span className="font-normal text-ink-3">· identical failures (same job, project and error) are grouped</span>
+        </h2>
         <ul className="divide-y divide-line">
-          {h.failedRecent.map((j) => (
-            <li key={j.id} className="grid gap-2 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          {h.failedGroups.map((g) => (
+            <li key={`${g.name}:${g.ids[0]}`} className="grid gap-2 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-mono">{j.name}</span>
-                  <span className="truncate font-mono text-xs text-ink-3">{JSON.stringify(j.data)}</span>
+                  {g.count > 1 ? (
+                    <span className="rounded-full bg-bad/15 px-2 py-0.5 font-mono text-xs text-bad" title={`${g.count} identical failures`}>
+                      ×{g.count}
+                    </span>
+                  ) : null}
+                  <span className="font-mono">{g.name}</span>
+                  {g.project ? (
+                    <Link href={`/manage/${g.project.owner}/${g.project.repo}`} className="truncate text-accent hover:underline">
+                      {g.project.owner}/{g.project.repo}
+                    </Link>
+                  ) : (
+                    <span className="truncate font-mono text-xs text-ink-3">{JSON.stringify(g.data)}</span>
+                  )}
                 </div>
-                <div className="truncate font-mono text-xs text-bad">{errorText(j.output)}</div>
+                <div className="text-sm text-ink-2">{explain(problemCode(g.message)).title}</div>
+                <div className="truncate font-mono text-xs text-bad" title={redact(g.message)}>
+                  {redact(g.message)}
+                </div>
                 <div className="text-xs text-ink-3">
-                  <LocalTime value={j.completedOn ?? j.createdOn} />
+                  {g.count > 1 ? (
+                    <>
+                      {g.count} times, <LocalTime value={g.firstAt} /> to <LocalTime value={g.lastAt} />
+                    </>
+                  ) : (
+                    <LocalTime value={g.lastAt} />
+                  )}
                 </div>
               </div>
               <div className="flex gap-1">
-                <ActionButton action={retryJob} fields={{ name: j.name, id: j.id }} label="Retry" />
-                <ConfirmButton action={discardJob} fields={{ name: j.name, id: j.id }} label="Discard" confirm="Discard" />
+                <ActionButton action={retryJob} fields={{ name: g.name, id: g.ids[0] }} label={g.count > 1 ? "Retry latest" : "Retry"} />
+                <ConfirmButton
+                  action={discardJob}
+                  fields={{ name: g.name, id: g.ids.join(",") }}
+                  label={g.count > 1 ? `Discard all ${g.count}` : "Discard"}
+                  confirm={g.count > 1 ? `Discard ${g.count}` : "Discard"}
+                />
               </div>
             </li>
           ))}
-          {h.failedRecent.length === 0 ? <li className="px-5 py-8 text-center text-sm text-ink-3">Nothing has failed.</li> : null}
+          {h.failedGroups.length === 0 ? <li className="px-5 py-8 text-center text-sm text-ink-3">Nothing has failed.</li> : null}
         </ul>
       </section>
     </div>
