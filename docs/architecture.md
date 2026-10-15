@@ -32,16 +32,17 @@ same database. There is no Redis.
 
 Defined in `src/db/schema.ts`; migrations live in `drizzle/`.
 
-| Table           | Holds                                                                                                                                                                                                                                                                                          |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projects`      | One row per repository: owner, repo, GitHub repository id (survives renames), display settings, default version / category / branch, artifact pattern, workflow restriction, split versions, PR comments flag, enabled flag, GitHub App installation id, last poll time and last ingest error. |
-| `reports`       | One version's progress at one commit: version, commit SHA, message and timestamp, source (`artifact`, `upload` or `import`), workflow run id, the 16 measures and per-category measures (JSON). Unique per project, version and commit. Optionally points to a blob.                           |
-| `report_blobs`  | Full reports, stored as gzip-compressed objdiff protobuf, deduplicated by SHA-256: commits with identical reports share one blob.                                                                                                                                                              |
-| `users`         | GitHub users who have signed in.                                                                                                                                                                                                                                                               |
-| `sessions`      | Signed-in browsers. The id is the SHA-256 of the cookie value; the user's GitHub token is encrypted with `SECRET_KEY`.                                                                                                                                                                         |
-| `api_tokens`    | Per-project upload tokens. Only a hash and a short prefix are stored.                                                                                                                                                                                                                          |
-| `pr_comments`   | The progress comment on each pull request, so later runs edit it instead of posting another.                                                                                                                                                                                                   |
-| `shared_themes` | Custom themes shared by code (`brave-otter-12`): name, colours and style, a content hash so identical themes share a code, and a salted hash of the sharer's address for the hourly limit.                                                                                                     |
+| Table             | Holds                                                                                                                                                                                                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`        | One row per repository: owner, repo, GitHub repository id (survives renames), display settings, default version / category / branch, artifact pattern, workflow restriction, split versions, PR comments flag, enabled flag, GitHub App installation id, last poll time and last ingest error. |
+| `reports`         | One version's progress at one commit: version, commit SHA, message and timestamp, source (`artifact`, `upload` or `import`), workflow run id, the 16 measures and per-category measures (JSON). Unique per project, version and commit. Optionally points to a blob.                           |
+| `report_blobs`    | Full reports, stored as gzip-compressed objdiff protobuf, deduplicated by SHA-256: commits with identical reports share one blob.                                                                                                                                                              |
+| `users`           | GitHub users who have signed in.                                                                                                                                                                                                                                                               |
+| `sessions`        | Signed-in browsers. The id is the SHA-256 of the cookie value; the user's GitHub token is encrypted with `SECRET_KEY`.                                                                                                                                                                         |
+| `api_tokens`      | Per-project upload tokens. Only a hash and a short prefix are stored.                                                                                                                                                                                                                          |
+| `pr_comments`     | The progress comment on each pull request, so later runs edit it instead of posting another.                                                                                                                                                                                                   |
+| `ingest_problems` | CI runs whose report artifact couldn't be used (no report in it, empty, too big, unreadable), with the files found. Polls skip these runs; the manage page explains them and can clear them to try again.                                                                                      |
+| `shared_themes`   | Custom themes shared by code (`brave-otter-12`): name, colours and style, a content hash so identical themes share a code, and a salted hash of the sharer's address for the hourly limit.                                                                                                     |
 
 Measures are kept forever. Full reports (units and functions) may be dropped after
 `REPORT_RETENTION_DAYS`, except each version's latest; history imported from decomp.dev has
@@ -60,6 +61,11 @@ measures but no blob.
    (and workflow restriction), and downloads them with an installation token or `GITHUB_TOKEN`.
 3. Each artifact is unzipped (up to `MAX_REPORT_BYTES`) and the report parsed. JSON and protobuf
    reports are accepted, and older objdiff report formats are migrated to the current one.
+   An artifact that holds no usable report is a problem with that run, not a failure of the job:
+   the run is recorded in `ingest_problems` and skipped from then on (a finished run's artifacts
+   never change), and the poll carries on with the other runs. If it's the newest run, the project's
+   `last_error` says so, and its maintainers see an explanation with steps to fix it on the manage
+   page and the project page (`src/lib/problems.ts`); the public see a one-line summary.
 4. With split versions, the report is split into one report per top-level `version` category.
 5. Measures and category measures go into `reports`; the full report is encoded as protobuf,
    gzipped, and stored in `report_blobs` unless a blob with the same SHA-256 exists.
@@ -95,7 +101,9 @@ have not expired and enqueues them for ingestion.
 | `prune`            |                   | Scheduled: drop full reports past `REPORT_RETENTION_DAYS`. |
 
 Queued jobs with the same key collapse into one, so a burst of webhooks for the same run is
-processed once. Failed jobs retry up to three times with backoff.
+processed once. Failed jobs retry up to three times with backoff. The admin panel's Jobs page groups
+identical failures (same job, project and error) into one row with a count, so a project that fails
+every poll shows once.
 
 ## Caching
 
