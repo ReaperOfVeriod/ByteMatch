@@ -338,7 +338,8 @@ export async function movers(days: number, limit = 8): Promise<Mover[]> {
     select pv.owner, pv.repo, pv.name, pv.icon_url, pv.version,
            (n.measures->>'matched_code_percent')::float8 as pct,
            (n.measures->>'matched_code_percent')::float8 - (b.measures->>'matched_code_percent')::float8 as gain,
-           (n.measures->>'matched_functions')::int - (b.measures->>'matched_functions')::int as functions_gained,
+           -- Through float8 and round: a stored count that isn't a whole number must not break the page.
+           round((n.measures->>'matched_functions')::float8 - (b.measures->>'matched_functions')::float8)::int as functions_gained,
            (select count(*) from ${reports} c
              where c.project_id = pv.id and c.version = pv.version
                and c.commit_timestamp > now() - make_interval(days => ${days}))::int as commits
