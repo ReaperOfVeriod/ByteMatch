@@ -8,9 +8,9 @@ import { db } from "@/db/client";
 import { projects, type Project } from "@/db/schema";
 import { findProject } from "@/db/store";
 import { userClient } from "@/github/client";
-import { config } from "@/lib/config";
 import { enqueue, JOBS } from "@/lib/queue";
 import { checkImageUrl } from "@/lib/images";
+import { registrationOpen } from "@/lib/settings";
 import { checkDiscordUrl } from "@/lib/links";
 import { createToken, revokeToken } from "@/lib/tokens";
 
@@ -42,7 +42,7 @@ export async function parseRepo(input: string): Promise<{ owner: string; repo: s
 
 export async function addProject(_: FormState, form: FormData): Promise<FormState> {
   const session = await requireSession();
-  if (!config().OPEN_REGISTRATION && !session.admin) return { error: "Only site admins can add projects on this instance." };
+  if (!session.admin && !(await registrationOpen())) return { error: "Adding projects is closed on this instance right now." };
   const parsed = await parseRepo(String(form.get("repo") ?? ""));
   if (!parsed) return { error: "Enter the repository as owner/repo or its GitHub URL." };
   if (!(await canManageRepo(session, parsed.owner, parsed.repo))) return { error: "You need admin rights on that GitHub repository." };

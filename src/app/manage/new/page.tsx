@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { projects } from "@/db/schema";
 import { userClient } from "@/github/client";
 import { config } from "@/lib/config";
+import { registrationOpen } from "@/lib/settings";
 import { PLATFORMS } from "@/lib/platforms";
 import { ChevronRight } from "@/components/ui/icons";
 import { Select } from "@/components/ui/select";
@@ -45,7 +46,7 @@ async function adminRepos(token: string): Promise<PickableRepo[] | null> {
 export default async function NewProject() {
   const session = await currentSession();
   if (!session) redirect("/login?next=/manage/new");
-  const closed = !config().OPEN_REGISTRATION && !session.admin;
+  const closed = !session.admin && !(await registrationOpen());
   const repos = closed ? null : await adminRepos(session.githubToken);
   const slug = config().GITHUB_APP_SLUG;
   const installLink = slug ? (

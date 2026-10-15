@@ -156,6 +156,42 @@ export const prComments = pgTable(
   (t) => [uniqueIndex("pr_comments_project_pr_idx").on(t.projectId, t.prNumber)],
 );
 
+/** GitHub accounts that may not sign in or submit projects. Matched by id, or by login before first sign-in. */
+export const blockedAccounts = pgTable(
+  "blocked_accounts",
+  {
+    id: serial("id").primaryKey(),
+    login: text("login").notNull(),
+    githubId: bigint("github_id", { mode: "number" }),
+    reason: text("reason"),
+    blockedBy: integer("blocked_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("blocked_accounts_login_idx").on(sql`lower(${t.login})`)],
+);
+
+/** Who did what in the admin panel. */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+    actorLogin: text("actor_login").notNull(),
+    action: text("action").notNull(),
+    target: text("target"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+    createdAt: created(),
+  },
+  (t) => [index("audit_log_created_idx").on(t.createdAt.desc())],
+);
+
+/** Instance switches set from the admin panel, and the worker's heartbeat. */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ReportRow = typeof reports.$inferSelect;

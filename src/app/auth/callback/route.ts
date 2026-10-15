@@ -3,6 +3,7 @@ import { cookieOptions, createSession, SESSION_COOKIE, STATE_COOKIE } from "@/au
 import { userClient } from "@/github/client";
 import { config, signInConfigured } from "@/lib/config";
 import { safeEqual } from "@/lib/crypto";
+import { isBlocked } from "@/lib/moderation";
 
 function cookie(name: string, value: string, maxAge: number) {
   const o = cookieOptions(maxAge);
@@ -32,6 +33,9 @@ export async function GET(request: NextRequest) {
   if (!token.access_token) return new Response(`GitHub sign-in failed: ${token.error_description ?? "no token"}`, { status: 400 });
 
   const { data: profile } = await userClient(token.access_token).request("GET /user");
+  if (await isBlocked({ githubId: Number(profile.id), login: profile.login })) {
+    return new Response(null, { status: 302, headers: { location: `${config().PUBLIC_URL}/login?blocked=1` } });
+  }
   const session = await createSession({ ...profile, id: Number(profile.id) }, token.access_token);
   const next = nextEncoded ? Buffer.from(nextEncoded, "base64url").toString() : "/manage";
   const headers = new Headers({ location: `${config().PUBLIC_URL}${next.startsWith("/") && !next.startsWith("//") ? next : "/manage"}` });

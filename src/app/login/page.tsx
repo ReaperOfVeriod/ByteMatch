@@ -12,8 +12,9 @@ export function generateMetadata(): Metadata {
 
 const safeNext = (next: string | undefined) => (next && next.startsWith("/") && !next.startsWith("//") ? next : "/manage");
 
-export default async function Login({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNext((await searchParams).next);
+export default async function Login({ searchParams }: { searchParams: Promise<{ next?: string; blocked?: string }> }) {
+  const params = await searchParams;
+  const next = safeNext(params.next);
   if (await currentSession().catch(() => null)) redirect(next);
   const ready = signInConfigured();
   return (
@@ -23,6 +24,11 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
           Your GitHub account is your {config().SITE_NAME} account. Signing in for the first time creates it; there is no separate password.
         </p>
+        {params.blocked ? (
+          <p className="mt-6 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
+            This GitHub account can&apos;t sign in to {config().SITE_NAME}.
+          </p>
+        ) : null}
         {ready ? (
           <a href={`/auth/login?next=${encodeURIComponent(next)}`} className="btn btn-primary mt-6 w-full">
             <GitHubMark />

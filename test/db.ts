@@ -18,7 +18,9 @@ export function useTestDb() {
   });
   beforeEach(async () => {
     const { sql } = await import("../src/db/client");
-    await sql().unsafe("truncate users, sessions, projects, report_blobs, reports, api_tokens, pr_comments restart identity cascade");
+    await sql().unsafe(
+      "truncate users, sessions, projects, report_blobs, reports, api_tokens, pr_comments, blocked_accounts, audit_log, settings restart identity cascade",
+    );
   });
   afterAll(async () => {
     const { closeDb } = await import("../src/db/client");

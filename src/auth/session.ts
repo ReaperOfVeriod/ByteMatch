@@ -7,6 +7,7 @@ import { sessions, users, type Project, type User } from "../db/schema";
 import { userClient } from "../github/client";
 import { config } from "../lib/config";
 import { decrypt, encrypt, sha256 } from "../lib/crypto";
+import { isBlocked } from "../lib/moderation";
 
 export const SESSION_COOKIE = "bytematch_session";
 export const STATE_COOKIE = "bytematch_oauth_state";
@@ -59,6 +60,7 @@ export const currentSession = cache(async (): Promise<Session | null> => {
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, sha256(token)), gt(sessions.expiresAt, new Date())));
   if (!row) return null;
+  if (await isBlocked({ githubId: row.user.githubId, login: row.user.login })) return null;
   try {
     return {
       user: row.user,

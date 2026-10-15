@@ -7,6 +7,7 @@ import { commentOnRun } from "../github/comments";
 import { importFromDecompDev } from "../ingest/decompdev";
 import { ingestRunById, pollProject, recordError } from "../ingest/github";
 import { config } from "../lib/config";
+import { setSetting, syncPaused } from "../lib/settings";
 import { isEntry } from "../lib/entry";
 import { boss, enqueue, JOBS, stopQueue, type JobData, type JobName } from "../lib/queue";
 
@@ -18,9 +19,18 @@ async function project(id: number): Promise<Project | undefined> {
 }
 
 /** Runs HANDLER for each job; a failure is recorded on the project and the job retried by pg-boss. */
+/** Jobs that talk to GitHub or decomp.dev; the admin "pause syncing" switch holds them back. */
+const SYNC_JOBS = new Set<JobName>([JOBS.ingestRun, JOBS.pollProject, JOBS.backfill, JOBS.importDecompDev, JOBS.prComment]);
+
 function handle<N extends JobName>(name: N, handler: (data: JobData[N]) => Promise<unknown>) {
   return async (jobs: Job<JobData[N]>[]) => {
     for (const job of jobs) {
+      if (SYNC_JOBS.has(name) && (await syncPaused())) {
+        // Paused: put it back for later instead of losing it.
+        await (await boss()).sendAfter(name, job.data as object, null, 600);
+        log(`[${name}] deferred while syncing is paused`, JSON.stringify(job.data));
+        continue;
+      }
       const started = Date.now();
       try {
         const result = await handler(job.data);
@@ -87,6 +97,7 @@ export async function startWorker() {
   await b.work(
     JOBS.pollAll,
     handle(JOBS.pollAll, async () => {
+      if (await syncPaused()) return "syncing paused";
       const all = await db()
         .select({ id: projects.id, hasReports: sql<boolean>`exists (select 1 from ${reports} r where r.project_id = ${projects.id})` })
         .from(projects)
@@ -111,6 +122,10 @@ export async function startWorker() {
   const every = c.POLL_INTERVAL_MINUTES;
   await b.schedule(JOBS.pollAll, every >= 60 ? `0 */${Math.floor(every / 60)} * * *` : `*/${every} * * * *`);
   await b.schedule(JOBS.prune, "17 3 * * *");
+  // Heartbeat for the admin panel: a worker that stops beating has stopped.
+  const beat = () => setSetting("workerHeartbeat", new Date().toISOString()).catch((e) => console.error("heartbeat", e));
+  await beat();
+  setInterval(beat, 60_000).unref();
   log(`worker started: polling every ${every} min, concurrency ${c.WORKER_CONCURRENCY}`);
 }
 
