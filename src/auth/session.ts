@@ -8,6 +8,7 @@ import { userClient } from "../github/client";
 import { config } from "../lib/config";
 import { decrypt, encrypt, sha256 } from "../lib/crypto";
 import { isBlocked } from "../lib/moderation";
+import { roleOf, submitterRole, type Role } from "../lib/roles";
 
 export const SESSION_COOKIE = "bytematch_session";
 export const STATE_COOKIE = "bytematch_oauth_state";
@@ -16,7 +17,10 @@ const SESSION_DAYS = 30;
 export interface Session {
   user: User;
   githubToken: string;
+  /** Site staff: an owner (ADMIN_GITHUB_LOGINS) or an admin appointed in the panel. */
   admin: boolean;
+  owner: boolean;
+  role: Role | null;
 }
 
 const secureCookies = () => config().PUBLIC_URL.startsWith("https://");
@@ -62,11 +66,8 @@ export const currentSession = cache(async (): Promise<Session | null> => {
   if (!row) return null;
   if (await isBlocked({ githubId: row.user.githubId, login: row.user.login })) return null;
   try {
-    return {
-      user: row.user,
-      githubToken: decrypt(row.githubToken),
-      admin: config().ADMIN_GITHUB_LOGINS.includes(row.user.login.toLowerCase()),
-    };
+    const role = await roleOf({ githubId: row.user.githubId, login: row.user.login });
+    return { user: row.user, githubToken: decrypt(row.githubToken), admin: role !== null, owner: role === "owner", role };
   } catch {
     return null;
   }
@@ -81,7 +82,7 @@ export async function destroySession(token: string | undefined) {
 
 /** Can the session's user manage OWNER/REPO? Site admins can; otherwise GitHub must say "admin". */
 export async function canManageRepo(session: Session, owner: string, repo: string): Promise<boolean> {
-  if (session.admin) return true;
+  if (session.owner) return true;
   try {
     const { data } = await userClient(session.githubToken).request("GET /repos/{owner}/{repo}", { owner, repo });
     return !!data.permissions?.admin;
@@ -90,5 +91,9 @@ export async function canManageRepo(session: Session, owner: string, repo: strin
   }
 }
 
-export const canManage = (session: Session, project: Pick<Project, "owner" | "repo">) =>
-  canManageRepo(session, project.owner, project.repo);
+/** Owners manage everything; admins everything except owners' projects; others need GitHub admin rights. */
+export async function canManage(session: Session, project: Pick<Project, "owner" | "repo" | "createdBy">): Promise<boolean> {
+  if (session.owner) return true;
+  if (session.admin && (await submitterRole(project)) !== "owner") return true;
+  return canManageRepo(session, project.owner, project.repo);
+}

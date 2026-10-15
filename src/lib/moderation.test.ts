@@ -18,7 +18,7 @@ describe.skipIf(!TEST_DB)("moderation", () => {
     const { projects, sessions } = await import("../db/schema");
     const { eq } = await import("drizzle-orm");
     const admin = await user(1, "admin");
-    const actor = { id: admin.id, login: admin.login };
+    const actor = { id: admin.id, login: admin.login, role: "owner" as const };
 
     // Not signed in yet: matched by login.
     await block(actor, "@Spammer", "spam", true);
@@ -54,7 +54,7 @@ describe.skipIf(!TEST_DB)("moderation", () => {
     const { projects, reports } = await import("../db/schema");
     const { eq } = await import("drizzle-orm");
     const admin = await user(1, "admin");
-    const actor = { id: admin.id, login: admin.login };
+    const actor = { id: admin.id, login: admin.login, role: "owner" as const };
     const p = await makeProject({ imageUrl: "https://example.com/bad.png", discordUrl: "https://discord.gg/x" });
     await storeReport({
       project: p,

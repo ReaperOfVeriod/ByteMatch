@@ -12,11 +12,11 @@ const TABS = [
   ["/admin/settings", "Settings"],
 ] as const;
 
-export function AdminNav() {
+export function AdminNav({ owner }: { owner: boolean }) {
   const path = usePathname();
   return (
     <nav aria-label="Admin" className="-mx-1 flex gap-1 overflow-x-auto pb-1">
-      {TABS.map(([href, label]) => {
+      {TABS.filter(([href]) => owner || href !== "/admin/settings").map(([href, label]) => {
         const active = href === "/admin" ? path === "/admin" : path.startsWith(href);
         return (
           <Link

@@ -1,8 +1,12 @@
+import { notFound } from "next/navigation";
+import { currentSession } from "@/auth/session";
 import { config } from "@/lib/config";
 import { getSettings } from "@/lib/settings";
 import { setRegistration, setSyncPaused } from "../actions";
 
 export default async function AdminSettings() {
+  const session = await currentSession();
+  if (!session?.owner) notFound();
   const s = await getSettings();
   const env = config().OPEN_REGISTRATION ? "open" : "closed";
   const option = (value: string, label: string, hint: string) => (

@@ -94,3 +94,23 @@ export function BlockForm({ action }: { action: (s: AdminState, f: FormData) => 
     </form>
   );
 }
+
+export function AppointForm({ action }: { action: (s: AdminState, f: FormData) => Promise<AdminState> }) {
+  const [state, run, pending] = useActionState(action, {});
+  return (
+    <form action={run} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <label className="grid gap-1.5 text-sm">
+        GitHub username
+        <input name="login" required placeholder="octocat" className="field" autoComplete="off" />
+      </label>
+      <button disabled={pending} className="btn btn-primary">
+        {pending ? "Appointing…" : "Appoint admin"}
+      </button>
+      {state.error ? (
+        <p className="text-sm text-bad sm:col-span-2">{state.error}</p>
+      ) : state.message ? (
+        <p className="text-sm text-ink-2 sm:col-span-2">{state.message}</p>
+      ) : null}
+    </form>
+  );
+}

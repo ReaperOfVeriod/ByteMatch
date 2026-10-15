@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
+import { currentSession } from "@/auth/session";
 import { db } from "@/db/client";
+import { isOwnerLogin } from "@/lib/roles";
 import { redact } from "@/lib/errors";
 import { clearDiscord, clearImage, removeProject, resyncProject, toggleProject } from "../actions";
 import { projectStatus, STATUS_STYLE, type ProjectStatus } from "../status";
@@ -13,6 +15,7 @@ type Params = { searchParams: Promise<{ status?: string; q?: string }> };
 
 export default async function AdminProjects({ searchParams }: Params) {
   const { status = "all", q = "" } = await searchParams;
+  const viewerIsOwner = !!(await currentSession())?.owner;
   const rows = await db().execute<{
     id: number;
     owner: string;
@@ -93,21 +96,25 @@ export default async function AdminProjects({ searchParams }: Params) {
                 </div>
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-1 lg:justify-end">
-              <ActionButton action={resyncProject} fields={{ id: String(p.id) }} label="Re-sync" />
-              <ActionButton
-                action={toggleProject}
-                fields={{ id: String(p.id), enabled: String(!p.enabled) }}
-                label={p.enabled ? "Disable" : "Enable"}
-              />
-              {p.image_url ? (
-                <ConfirmButton action={clearImage} fields={{ id: String(p.id) }} label="Remove image" confirm="Remove image" />
-              ) : null}
-              {p.discord_url ? (
-                <ConfirmButton action={clearDiscord} fields={{ id: String(p.id) }} label="Remove Discord" confirm="Remove link" />
-              ) : null}
-              <ConfirmButton action={removeProject} fields={{ id: String(p.id) }} label="Delete" confirm={`Delete ${p.repo}`} reason />
-            </div>
+            {!viewerIsOwner && isOwnerLogin(p.submitter) ? (
+              <span className="text-xs text-ink-3 lg:text-right">Submitted by an owner: only owners can change it</span>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1 lg:justify-end">
+                <ActionButton action={resyncProject} fields={{ id: String(p.id) }} label="Re-sync" />
+                <ActionButton
+                  action={toggleProject}
+                  fields={{ id: String(p.id), enabled: String(!p.enabled) }}
+                  label={p.enabled ? "Disable" : "Enable"}
+                />
+                {p.image_url ? (
+                  <ConfirmButton action={clearImage} fields={{ id: String(p.id) }} label="Remove image" confirm="Remove image" />
+                ) : null}
+                {p.discord_url ? (
+                  <ConfirmButton action={clearDiscord} fields={{ id: String(p.id) }} label="Remove Discord" confirm="Remove link" />
+                ) : null}
+                <ConfirmButton action={removeProject} fields={{ id: String(p.id) }} label="Delete" confirm={`Delete ${p.repo}`} reason />
+              </div>
+            )}
           </li>
         ))}
         {shown.length === 0 ? <li className="px-5 py-10 text-center text-sm text-ink-3">No projects here.</li> : null}

@@ -8,6 +8,7 @@ import { db } from "@/db/client";
 import { projects } from "@/db/schema";
 import { audit, block, clearProjectLinks, deleteProject, setProjectsEnabled, unblock, type Actor } from "@/lib/moderation";
 import { boss, enqueue, JOBS, type JobName } from "@/lib/queue";
+import { appointAdmin, assertCanActOnProject, removeAdmin } from "@/lib/roles";
 import { clearSetting, setSetting } from "@/lib/settings";
 
 export interface AdminState {
@@ -15,11 +16,18 @@ export interface AdminState {
   message?: string;
 }
 
-/** Every admin action re-checks the session: a 404 for anyone who is not a site admin. */
+/** Every admin action re-checks the session: a 404 for anyone who is not site staff. */
 async function requireAdmin(): Promise<Actor> {
   const session = await currentSession();
-  if (!session?.admin) notFound();
-  return { id: session.user.id, login: session.user.login };
+  if (!session?.role) notFound();
+  return { id: session.user.id, login: session.user.login, role: session.role };
+}
+
+/** Owner-only actions: instance settings and appointing admins. */
+async function requireOwner(): Promise<Actor> {
+  const actor = await requireAdmin();
+  if (actor.role !== "owner") notFound();
+  return actor;
 }
 
 async function projectById(id: number) {
@@ -38,6 +46,7 @@ export async function resyncProject(form: FormData) {
   const actor = await requireAdmin();
   const p = await projectById(Number(form.get("id")));
   if (!p) return;
+  await assertCanActOnProject(actor.role, p);
   await enqueue(JOBS.importDecompDev, { projectId: p.id }, `import:${p.id}`);
   await enqueue(JOBS.backfill, { projectId: p.id, maxRuns: 500 }, `backfill:${p.id}`);
   await audit(actor, "resync-project", `${p.owner}/${p.repo}`);
@@ -118,7 +127,7 @@ export async function discardJob(form: FormData) {
 // ---- Settings ----
 
 export async function setRegistration(form: FormData) {
-  const actor = await requireAdmin();
+  const actor = await requireOwner();
   const v = String(form.get("registration"));
   if (v === "open" || v === "closed") await setSetting("registration", v);
   else await clearSetting("registration");
@@ -127,9 +136,30 @@ export async function setRegistration(form: FormData) {
 }
 
 export async function setSyncPaused(form: FormData) {
-  const actor = await requireAdmin();
+  const actor = await requireOwner();
   const paused = form.get("paused") === "true";
   await setSetting("syncPaused", paused);
   await audit(actor, paused ? "pause-sync" : "resume-sync", null);
   revalidatePath("/admin", "layout");
+}
+
+// ---- Staff (owners only) ----
+
+export async function appointAdminAction(_: AdminState, form: FormData): Promise<AdminState> {
+  const actor = await requireOwner();
+  const login = String(form.get("login") ?? "");
+  try {
+    await appointAdmin(actor, login);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  await audit(actor, "appoint-admin", login.trim().replace(/^@/, ""));
+  return done("Appointed. They get admin access the next time they load a page.");
+}
+
+export async function removeAdminAction(form: FormData) {
+  const actor = await requireOwner();
+  const row = await removeAdmin(actor, Number(form.get("id")));
+  if (row) await audit(actor, "remove-admin", row.login);
+  revalidatePath("/admin/users");
 }

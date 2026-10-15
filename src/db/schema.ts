@@ -170,6 +170,22 @@ export const blockedAccounts = pgTable(
   (t) => [uniqueIndex("blocked_accounts_login_idx").on(sql`lower(${t.login})`)],
 );
 
+/**
+ * Admins appointed from the panel. Owners (ADMIN_GITHUB_LOGINS) are not stored here: they come from
+ * the server's configuration, so nothing done in the panel can remove them.
+ */
+export const siteAdmins = pgTable(
+  "site_admins",
+  {
+    id: serial("id").primaryKey(),
+    login: text("login").notNull(),
+    githubId: bigint("github_id", { mode: "number" }),
+    appointedBy: integer("appointed_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("site_admins_login_idx").on(sql`lower(${t.login})`)],
+);
+
 /** Who did what in the admin panel. */
 export const auditLog = pgTable(
   "audit_log",

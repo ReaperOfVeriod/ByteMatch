@@ -11,11 +11,7 @@ export const metadata = { title: "Manage" };
 export default async function Manage() {
   const session = await currentSession();
   if (!session) redirect("/login?next=/manage");
-  const list = await db()
-    .select()
-    .from(projects)
-    .where(session.admin ? undefined : eq(projects.createdBy, session.user.id))
-    .orderBy(desc(projects.updatedAt));
+  const list = await db().select().from(projects).where(eq(projects.createdBy, session.user.id)).orderBy(desc(projects.updatedAt));
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center gap-3">
@@ -25,9 +21,7 @@ export default async function Manage() {
         </Link>
       </div>
       <p className="mt-1 text-sm text-ink-2">
-        {session.admin
-          ? "All projects (you are a site admin)."
-          : "Projects you added. To manage another, submit it: you need admin rights on its repository."}
+        Projects you submitted. To manage another, submit it: you need admin rights on its repository.
       </p>
       <ul className="panel mt-6 divide-y divide-line overflow-hidden">
         {list.map((p) => (
