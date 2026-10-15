@@ -10,6 +10,7 @@ import { slugify } from "@/lib/games";
 import { platformName } from "@/lib/platforms";
 import { publicError } from "@/lib/errors";
 import { hiddenFromPublic } from "@/lib/visibility";
+import { chosenTheme } from "@/lib/theme-server";
 import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
@@ -118,9 +119,12 @@ function ProgressSection({
   matched,
   fuzzy,
   tone = "code",
+  tall = false,
 }: {
   /** Code is green; data is blue, so the two sections read apart at a glance. */
   tone?: "code" | "data";
+  /** The Directory layout's taller, square bar. */
+  tall?: boolean;
   label: string;
   total: number;
   linkedBytes: number;
@@ -177,7 +181,7 @@ function ProgressSection({
         {label} <span className="text-ink-3">({formatBytes(total)})</span>
       </div>
       <div className="relative">
-        <div className="flex h-4 w-full overflow-hidden rounded-full bg-track" aria-hidden>
+        <div className={`flex w-full overflow-hidden bg-track ${tall ? "h-9 rounded-[2px]" : "h-4 rounded-full"}`} aria-hidden>
           {layers.map((layer) => (
             <div key={layer.key} className="h-full" style={{ width: `${layer.width}%`, background: layer.background }} />
           ))}
@@ -189,7 +193,7 @@ function ProgressSection({
               key={layer.key}
               tabIndex={0}
               aria-label={`${label}, ${layer.label}: ${layer.detail}`}
-              className="group absolute -top-1 h-6 cursor-default rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className={`group absolute -top-1 cursor-default ${tall ? "h-11" : "h-6"} rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
               // At least 10px wide so thin layers can be pointed at; centred on the layer.
               style={{
                 left: `calc(${layer.from + layer.width / 2}% - max(5px, ${layer.width / 2}%))`,
@@ -275,9 +279,10 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
   const gameSlug = project.game ? slugify(project.game) : "";
   const navBtn = "btn btn-ghost h-9 flex-1 px-3 text-sm";
   const navOff = "btn h-9 flex-1 cursor-not-allowed border border-line px-3 text-sm text-ink-3 opacity-50";
+  const directory = (await chosenTheme()).style.layout === "directory";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
+    <div className="report-page grid grid-cols-[minmax(0,1fr)] gap-5">
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
 
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
@@ -312,28 +317,60 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
         </a>
       </nav>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
+      <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 ${directory ? "" : "xl:grid-cols-[minmax(0,1fr)_23rem]"}`}>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
-          <section className="panel overflow-hidden">
+          <section className={`panel overflow-hidden ${directory ? "report-summary" : ""}`}>
             {project.imageUrl ? (
               <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
             ) : null}
             <div className="p-6 sm:p-7">
-              <div className="flex items-start gap-4">
-                {project.iconUrl ? (
-                  <ExternalImage src={project.iconUrl} className="size-14 shrink-0 rounded-xl border border-line object-cover sm:size-16" />
-                ) : null}
-                <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-                  {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
-                </h1>
-              </div>
-              <p className="mt-1 text-base font-medium text-ink-3">
-                {m.complete_code_percent.toFixed(2)}% fully linked
-                {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
-              </p>
+              {directory ? (
+                <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+                  <div className="flex min-w-0 items-center gap-4">
+                    {project.iconUrl ? (
+                      <ExternalImage src={project.iconUrl} className="size-14 shrink-0 rounded-lg border border-line object-cover" />
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="directory-kicker">Progress report</p>
+                      <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{project.name}</h1>
+                      <p className="mt-2 text-sm text-ink-3">
+                        {project.platform ? `${platformName(project.platform)} / ` : ""}
+                        {r.version}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-1 sm:text-right">
+                    <strong className="big-figure text-4xl leading-none sm:text-5xl">
+                      {m.matched_code_percent.toFixed(2)}
+                      <small>%</small>
+                    </strong>
+                    <span className="text-xs text-ink-3">code matched</span>
+                    <span className="text-xs text-ink-3">{m.complete_code_percent.toFixed(2)}% fully linked</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start gap-4">
+                    {project.iconUrl ? (
+                      <ExternalImage
+                        src={project.iconUrl}
+                        className="size-14 shrink-0 rounded-xl border border-line object-cover sm:size-16"
+                      />
+                    ) : null}
+                    <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                      {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
+                    </h1>
+                  </div>
+                  <p className="mt-1 text-base font-medium text-ink-3">
+                    {m.complete_code_percent.toFixed(2)}% fully linked
+                    {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
+                  </p>
+                </>
+              )}
 
-              <div className="mt-6 grid gap-5">
+              <div className={`mt-6 grid gap-5 ${directory && m.total_data > 0 ? "lg:grid-cols-2" : ""}`}>
                 <ProgressSection
+                  tall={directory}
                   label="Code"
                   total={m.total_code}
                   linkedBytes={m.complete_code}
@@ -344,6 +381,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                 />
                 {m.total_data > 0 ? (
                   <ProgressSection
+                    tall={directory}
                     label="Data"
                     tone="data"
                     total={m.total_data}
@@ -431,7 +469,10 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
           ) : null}
         </div>
 
-        <aside className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:sticky xl:top-20" aria-label="Project details">
+        <aside
+          className={`grid grid-cols-[minmax(0,1fr)] gap-4 ${directory ? "items-start lg:grid-cols-2" : "xl:sticky xl:top-20"}`}
+          aria-label="Project details"
+        >
           <Side title="Details">
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
               <Stat

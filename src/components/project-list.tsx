@@ -12,6 +12,8 @@ export interface ProjectRow {
   franchise?: string | null;
   version: string | null;
   codePercent: number | null;
+  linkedPercent?: number | null;
+  fuzzyPercent?: number | null;
   functions: { done: number; total: number } | null;
   updated: string | null;
   image: string | null;
