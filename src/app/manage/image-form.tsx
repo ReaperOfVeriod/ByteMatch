@@ -8,11 +8,15 @@ export function ImageForm({
   current,
   name,
   action,
+  shape,
 }: {
   current: string | null;
   name: string;
   action: (s: FormState, f: FormData) => Promise<FormState>;
+  /** "wide" for the cover banner, "square" for the icon. */
+  shape: "wide" | "square";
 }) {
+  const what = shape === "square" ? "icon" : "cover";
   const [state, run, pending] = useActionState(action, {});
   const [url, setUrl] = useState(current ?? "");
   const [status, setStatus] = useState<"empty" | "loading" | "ok" | "broken">(current ? "loading" : "empty");
@@ -21,13 +25,15 @@ export function ImageForm({
 
   return (
     <form action={run} className="grid gap-4">
-      <div className="relative aspect-[3/1] overflow-hidden rounded-xl border border-line bg-surface-2">
+      <div
+        className={`relative overflow-hidden rounded-xl border border-line bg-surface-2 ${shape === "square" ? "aspect-square w-32" : "aspect-[3/1]"}`}
+      >
         {httpsLink ? (
           // eslint-disable-next-line @next/next/no-img-element -- an image hosted elsewhere, shown as a preview
           <img
             key={trimmed}
             src={trimmed}
-            alt={`${name} banner preview`}
+            alt={`${name} ${what} preview`}
             referrerPolicy="no-referrer"
             onLoad={() => setStatus("ok")}
             onError={() => setStatus("broken")}
@@ -40,12 +46,17 @@ export function ImageForm({
               ? "That link doesn't load as an image."
               : trimmed
                 ? "The link must start with https://."
-                : "No image. Paste a link to a wide banner (about 1500 × 500) or box art."}
+                : shape === "square"
+                  ? "No icon"
+                  : "No cover. Paste a link to a wide banner (about 1500 × 500)."}
           </div>
         ) : null}
       </div>
       <label className="grid gap-1.5 text-sm">
-        Image link <span className="text-xs text-ink-3">https, hosted anywhere public; ByteMatch only links to it</span>
+        {shape === "square" ? "Icon link" : "Cover link"}{" "}
+        <span className="text-xs text-ink-3">
+          {shape === "square" ? "square, about 256 × 256" : "wide, about 1500 × 500"}; https, hosted anywhere public
+        </span>
         <input
           name="imageUrl"
           value={url}
@@ -61,7 +72,7 @@ export function ImageForm({
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <button disabled={pending || (trimmed !== "" && status !== "ok")} className="btn btn-primary">
-          {pending ? "Saving…" : trimmed ? "Save image" : "Remove image"}
+          {pending ? "Saving…" : trimmed ? `Save ${what}` : `Remove ${what}`}
         </button>
         {state.error ? (
           <p className="text-sm text-bad">{state.error}</p>

@@ -203,11 +203,12 @@ export async function projectIndex() {
     measures: Measures | null;
     commit_timestamp: string | null;
     image_url: string | null;
+    icon_url: string | null;
     created_at: string;
     /** Matched-code percentage points gained over the last 30 days (since the first report if newer). */
     gain_30d: number | null;
   }>(dsql`
-    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, p.created_at,
+    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, p.icon_url, p.created_at,
            r.version, r.measures, r.commit_timestamp,
            (r.measures->>'matched_code_percent')::float8 - (b.measures->>'matched_code_percent')::float8 as gain_30d
     from ${projects} p

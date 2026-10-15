@@ -184,8 +184,21 @@ export default async function ManageProject({ params, searchParams }: Params) {
         </ActionForm>
       </Card>
 
-      <Card title="Image">
-        <ImageForm current={project.imageUrl} name={project.name} action={setImageUrl.bind(null, project.owner, project.repo)} />
+      <Card title="Icon and cover">
+        <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+          <ImageForm
+            shape="square"
+            current={project.iconUrl}
+            name={project.name}
+            action={setImageUrl.bind(null, project.owner, project.repo, "icon")}
+          />
+          <ImageForm
+            shape="wide"
+            current={project.imageUrl}
+            name={project.name}
+            action={setImageUrl.bind(null, project.owner, project.repo, "cover")}
+          />
+        </div>
       </Card>
 
       <Card title="Upload tokens">

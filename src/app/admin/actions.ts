@@ -66,6 +66,13 @@ export async function clearImage(form: FormData) {
   revalidatePath("/admin/projects");
 }
 
+export async function clearIcon(form: FormData) {
+  const actor = await requireAdmin();
+  const p = await projectById(Number(form.get("id")));
+  if (p) await clearProjectLinks(actor, p, { icon: true });
+  revalidatePath("/admin/projects");
+}
+
 export async function clearDiscord(form: FormData) {
   const actor = await requireAdmin();
   const p = await projectById(Number(form.get("id")));

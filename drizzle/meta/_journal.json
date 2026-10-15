@@ -36,6 +36,13 @@
       "when": 1792035375795,
       "tag": "0004_site_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792035590619,
+      "tag": "0005_project_icon",
+      "breakpoints": true
     }
   ]
 }

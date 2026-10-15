@@ -119,13 +119,14 @@ branch and posts one comment per PR, listing:
 Later runs on the same PR update that comment rather than adding new ones. Turn PR comments off on
 the project's manage page.
 
-## 5. Project image
+## 5. Icon and cover
 
-A project can show a banner on its page and a thumbnail in the project list. On the manage page,
-paste an `https` link to the image under **Image**; a wide banner (about 1500 × 500) or box art works
-well. ByteMatch only links to the image: it never downloads or stores it, so host it somewhere
-public and stable (your repository, a GitHub release, an image host). Visitors' browsers load it
-directly, without a referrer. If the link stops working, the page simply shows no image.
+A project can show a square **icon** (in the project list and next to its name) and a wide
+**cover** (the banner on its page). On the manage page, paste an `https` link for each under **Icon
+and cover**: about 256 × 256 for the icon and 1500 × 500 for the cover. ByteMatch only links to
+them: it never downloads or stores images, so host them somewhere public and stable (your
+repository, a GitHub release, an image host). Visitors' browsers load them directly, without a
+referrer. If a link stops working, the page simply shows no image.
 
 ## Manage page reference
 

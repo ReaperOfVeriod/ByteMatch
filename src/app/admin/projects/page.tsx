@@ -4,7 +4,7 @@ import { currentSession } from "@/auth/session";
 import { db } from "@/db/client";
 import { isOwnerLogin } from "@/lib/roles";
 import { redact } from "@/lib/errors";
-import { clearDiscord, clearImage, removeProject, resyncProject, toggleProject } from "../actions";
+import { clearDiscord, clearIcon, clearImage, removeProject, resyncProject, toggleProject } from "../actions";
 import { projectStatus, STATUS_STYLE, type ProjectStatus } from "../status";
 import { ActionButton, ConfirmButton } from "../ui";
 
@@ -26,12 +26,13 @@ export default async function AdminProjects({ searchParams }: Params) {
     last_polled_at: string | null;
     installation_id: number | null;
     image_url: string | null;
+    icon_url: string | null;
     discord_url: string | null;
     created_at: string;
     submitter: string | null;
     reports: number;
   }>(sql`
-    select p.id, p.owner, p.repo, p.name, p.enabled, p.last_error, p.last_polled_at, p.installation_id, p.image_url,
+    select p.id, p.owner, p.repo, p.name, p.enabled, p.last_error, p.last_polled_at, p.installation_id, p.image_url, p.icon_url,
            p.discord_url, p.created_at, u.login as submitter,
            (select count(*) from reports r where r.project_id = p.id)::int as reports
     from projects p left join users u on u.id = p.created_by
@@ -87,9 +88,17 @@ export default async function AdminProjects({ searchParams }: Params) {
                 {p.last_polled_at ? fmtDate.format(new Date(p.last_polled_at)) : "never"}
               </div>
               {p.last_error ? <div className="mt-1 truncate font-mono text-xs text-[#f0b429]">{redact(p.last_error)}</div> : null}
+              {p.icon_url ? (
+                <div className="mt-1 truncate text-xs text-ink-3">
+                  Icon:{" "}
+                  <a href={p.icon_url} rel="noopener noreferrer" target="_blank" className="underline">
+                    {p.icon_url}
+                  </a>
+                </div>
+              ) : null}
               {p.image_url ? (
                 <div className="mt-1 truncate text-xs text-ink-3">
-                  Image:{" "}
+                  Cover:{" "}
                   <a href={p.image_url} rel="noopener noreferrer" target="_blank" className="underline">
                     {p.image_url}
                   </a>
@@ -106,8 +115,11 @@ export default async function AdminProjects({ searchParams }: Params) {
                   fields={{ id: String(p.id), enabled: String(!p.enabled) }}
                   label={p.enabled ? "Disable" : "Enable"}
                 />
+                {p.icon_url ? (
+                  <ConfirmButton action={clearIcon} fields={{ id: String(p.id) }} label="Remove icon" confirm="Remove icon" />
+                ) : null}
                 {p.image_url ? (
-                  <ConfirmButton action={clearImage} fields={{ id: String(p.id) }} label="Remove image" confirm="Remove image" />
+                  <ConfirmButton action={clearImage} fields={{ id: String(p.id) }} label="Remove cover" confirm="Remove cover" />
                 ) : null}
                 {p.discord_url ? (
                   <ConfirmButton action={clearDiscord} fields={{ id: String(p.id) }} label="Remove Discord" confirm="Remove link" />

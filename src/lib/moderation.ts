@@ -97,16 +97,23 @@ export async function setProjectsEnabled(actor: Actor, ids: number[], enabled: b
   for (const p of rows) await audit(actor, enabled ? "enable-project" : "disable-project", `${p.owner}/${p.repo}`);
 }
 
-/** Removes a project's linked image and/or Discord invite (e.g. an obscene image). */
-export async function clearProjectLinks(actor: Actor, project: Project, what: { image?: boolean; discord?: boolean }) {
+/** Removes a project's linked cover, icon and/or Discord invite (e.g. an obscene image). */
+export async function clearProjectLinks(actor: Actor, project: Project, what: { image?: boolean; icon?: boolean; discord?: boolean }) {
   await assertCanActOnProject(actor.role, project);
   await db()
     .update(projects)
-    .set({ ...(what.image ? { imageUrl: null } : {}), ...(what.discord ? { discordUrl: null } : {}), updatedAt: new Date() })
+    .set({
+      ...(what.image ? { imageUrl: null } : {}),
+      ...(what.icon ? { iconUrl: null } : {}),
+      ...(what.discord ? { discordUrl: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(projects.id, project.id));
   await audit(actor, "clear-links", `${project.owner}/${project.repo}`, {
-    image: !!what.image,
+    cover: !!what.image,
+    icon: !!what.icon,
     discord: !!what.discord,
-    imageUrl: what.image ? project.imageUrl : undefined,
+    coverUrl: what.image ? project.imageUrl : undefined,
+    iconUrl: what.icon ? project.iconUrl : undefined,
   });
 }

@@ -149,13 +149,18 @@ export async function deleteToken(owner: string, repo: string, form: FormData) {
   revalidatePath(`/manage/${owner}/${repo}`);
 }
 
-export async function setImageUrl(owner: string, repo: string, _: FormState, form: FormData): Promise<FormState> {
+/** Sets the project's cover (banner) or icon (square thumbnail) link; empty removes it. */
+export async function setImageUrl(owner: string, repo: string, kind: "cover" | "icon", _: FormState, form: FormData): Promise<FormState> {
   const project = await managed(owner, repo);
   const checked = checkImageUrl(String(form.get("imageUrl") ?? ""));
   if ("error" in checked) return { error: checked.error };
-  await db().update(projects).set({ imageUrl: checked.url, updatedAt: new Date() }).where(eq(projects.id, project.id));
+  await db()
+    .update(projects)
+    .set({ ...(kind === "icon" ? { iconUrl: checked.url } : { imageUrl: checked.url }), updatedAt: new Date() })
+    .where(eq(projects.id, project.id));
   revalidatePath(`/manage/${owner}/${repo}`);
   revalidatePath(`/${owner}/${repo}`);
   revalidatePath("/");
-  return { message: checked.url ? "Image saved." : "Image removed." };
+  const what = kind === "icon" ? "Icon" : "Cover";
+  return { message: checked.url ? `${what} saved.` : `${what} removed.` };
 }

@@ -175,6 +175,23 @@ GET /api/v1/projects
 
 Lists the projects on the instance, each with its default version's latest measures.
 
+Each entry has `owner`, `repo`, `name`, `short_name`, `platform`, `url`, `icon_url`, `cover_url`,
+`version` (the default version), `timestamp` (its latest commit), `gain_30d` (matched-code
+percentage points gained over the last 30 days) and `measures`.
+
+Query parameters, the same as the project list page:
+
+| Parameter  | Meaning                                                                           |
+| ---------- | --------------------------------------------------------------------------------- |
+| `q`        | Search words; every word must appear in the name or `owner/repo`.                 |
+| `platform` | Platform id, e.g. `ps2`.                                                          |
+| `sort`     | `updated` (default), `progress`, `functions`, `gain`, `size`, `newest` or `name`. |
+| `page`     | Page number, from 1.                                                              |
+| `per_page` | Results per page: default 100, at most 500.                                       |
+
+Paging is reported in the `X-Total-Count` and `X-Total-Pages` headers and a `Link` header with
+`first`, `last`, `prev` and `next`.
+
 ## Upload API
 
 ```

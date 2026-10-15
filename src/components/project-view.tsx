@@ -223,9 +223,14 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
               <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
             ) : null}
             <div className="p-6 sm:p-7">
-              <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-                {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
-              </h1>
+              <div className="flex items-start gap-4">
+                {project.iconUrl ? (
+                  <ExternalImage src={project.iconUrl} className="size-14 shrink-0 rounded-xl border border-line object-cover sm:size-16" />
+                ) : null}
+                <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                  {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
+                </h1>
+              </div>
               <p className="mt-1 text-base font-medium text-ink-3">
                 {m.complete_code_percent.toFixed(2)}% fully linked
                 {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}

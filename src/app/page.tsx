@@ -35,7 +35,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
     totalCode: p.measures ? Number(p.measures.total_code) : null,
     gain30: p.gain_30d === null ? null : Number(p.gain_30d),
     createdAt: new Date(p.created_at).toISOString(),
-    image: p.image_url,
+    image: p.icon_url,
   }));
   const platforms = [
     ...new Map(all.filter((r) => r.platform).map((r) => [r.platform!.toLowerCase(), r.platformName ?? r.platform!])).entries(),
