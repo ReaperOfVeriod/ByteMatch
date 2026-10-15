@@ -1,29 +1,21 @@
 "use server";
 
 import { headers } from "next/headers";
-import { findSharedTheme, ShareLimitError, shareTheme } from "@/db/themes";
-import { config } from "@/lib/config";
-import { sha256 } from "@/lib/crypto";
-import { normalizeCode, parseTheme, type Theme } from "@/lib/theme";
+import { findSharedTheme, refreshCodes, ShareRefusedError, sharerHash, shareTheme } from "@/db/themes";
+import { clientAddress } from "@/lib/client-address";
+import { CODE_PATTERN, normalizeCode, parseTheme, type Theme } from "@/lib/theme";
 
 export type ShareResult = { code: string } | { error: string };
 export type LookupResult = { theme: Theme } | { error: string };
-
-/** Only for the hourly limit: the address is never stored, just a salted hash of it. */
-async function sharerHash(): Promise<string | null> {
-  const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip");
-  return ip ? sha256(`theme-share:${config().SECRET_KEY ?? ""}:${ip}`) : null;
-}
 
 /** Give a theme its share code. The theme arrives as its text form and is checked like any other. */
 export async function shareThemeAction(text: string): Promise<ShareResult> {
   const r = parseTheme(text);
   if (!r.ok) return { error: r.error };
   try {
-    return { code: await shareTheme(r.theme, await sharerHash()) };
+    return { code: await shareTheme(r.theme, sharerHash(clientAddress(await headers()))) };
   } catch (e) {
-    if (e instanceof ShareLimitError) return { error: e.message };
+    if (e instanceof ShareRefusedError) return { error: e.message };
     console.error("shareThemeAction", e);
     return { error: "The theme couldn't be shared just now. It's still saved here; try again in a moment." };
   }
@@ -43,5 +35,16 @@ export async function lookupThemeAction(input: string): Promise<LookupResult> {
   } catch (e) {
     console.error("lookupThemeAction", e);
     return { error: "Themes can't be looked up just now. Try again in a moment." };
+  }
+}
+
+/** Keeps the codes of themes someone still has saved alive, and names any that no longer work. */
+export async function refreshCodesAction(codes: string[]): Promise<{ missing: string[] }> {
+  const valid = [...new Set(codes.filter((c) => typeof c === "string" && CODE_PATTERN.test(c)))].slice(0, 100);
+  try {
+    return { missing: await refreshCodes(valid) };
+  } catch (e) {
+    console.error("refreshCodesAction", e);
+    return { missing: [] };
   }
 }

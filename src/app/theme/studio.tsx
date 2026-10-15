@@ -5,7 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 import { StyleSwatch, ThemeSwatch } from "@/components/theme-swatch";
 import { Check, Plus } from "@/components/ui/icons";
 import { useTheme } from "@/components/use-theme";
-import { lookupThemeAction, shareThemeAction, type LookupResult, type ShareResult } from "./actions";
+import { lookupThemeAction, refreshCodesAction, shareThemeAction, type LookupResult, type ShareResult } from "./actions";
 import {
   contrast,
   isHex,
@@ -301,6 +301,23 @@ function useShareCodes(custom: Theme[], saveCustom: (list: Theme[]) => void) {
     if ("error" in r) return setFailed((f) => ({ ...f, [k]: r.error }));
     saveCustom(custom.map((x) => (key(x) === k && !x.code ? { ...x, code: r.code } : x)));
   });
+
+  // Once per visit: tell the server these codes are still wanted, and drop any it no longer has
+  // (removed by a moderator, or pruned); those themes then get a fresh code, or say why they can't.
+  const checked = useRef(false);
+  const dropMissing = useEffectEvent((missing: string[]) => {
+    if (missing.length) saveCustom(custom.map((t) => (t.code && missing.includes(t.code) ? { ...t, code: undefined } : t)));
+  });
+  useEffect(() => {
+    // Saved themes arrive after hydration, so wait until there are codes to check.
+    const codes = custom.flatMap((t) => (t.code ? [t.code] : []));
+    if (checked.current || !codes.length) return;
+    checked.current = true;
+    refreshCodesAction(codes).then(
+      (r) => dropMissing(r.missing),
+      () => {},
+    );
+  }, [custom]);
 
   useEffect(() => {
     if (!next || inFlight.current) return;

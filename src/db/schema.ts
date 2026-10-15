@@ -259,11 +259,19 @@ export const sharedThemes = pgTable(
     style: jsonb("style").$type<Record<string, string>>().notNull(),
     /** SHA-256 of the theme's canonical text, so identical themes share one code. */
     contentHash: text("content_hash").notNull().unique(),
-    /** A salted hash of the sharer's address, only to limit how many a browser can share. */
+    /** A salted hash of the sharer's address (or of "no address"), only for the hourly limit and moderation. */
     sharerHash: text("sharer_hash"),
     createdAt: created(),
+    /** Last shared, opened, added or still saved by someone; codes unused for long are pruned. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Removed by a moderator: the code stops working and the same theme can't be shared again. */
+    removedAt: timestamp("removed_at", { withTimezone: true }),
   },
-  (t) => [index("shared_themes_sharer_idx").on(t.sharerHash, t.createdAt)],
+  (t) => [
+    index("shared_themes_sharer_idx").on(t.sharerHash, t.createdAt),
+    index("shared_themes_created_idx").on(t.createdAt),
+    index("shared_themes_used_idx").on(t.lastUsedAt),
+  ],
 );
 
 export type Project = typeof projects.$inferSelect;

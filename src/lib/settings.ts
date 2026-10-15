@@ -11,13 +11,27 @@ export interface Settings {
   syncPaused: boolean;
   /** ISO time of the worker's last heartbeat. */
   workerHeartbeat: string | null;
+  /** Stops anyone getting new theme share codes; existing codes keep working. */
+  themeSharingPaused: boolean;
+  /** New theme share codes allowed across the whole site per 24 hours. */
+  themeDailyLimit: number;
 }
 
-const DEFAULTS: Settings = { registration: null, syncPaused: false, workerHeartbeat: null };
+export const DEFAULT_THEME_DAILY_LIMIT = 2000;
+
+const DEFAULTS: Settings = {
+  registration: null,
+  syncPaused: false,
+  workerHeartbeat: null,
+  themeSharingPaused: false,
+  themeDailyLimit: DEFAULT_THEME_DAILY_LIMIT,
+};
 const KEYS: Record<keyof Settings, string> = {
   registration: "registration",
   syncPaused: "sync_paused",
   workerHeartbeat: "worker_heartbeat",
+  themeSharingPaused: "theme_sharing_paused",
+  themeDailyLimit: "theme_daily_limit",
 };
 
 export async function getSettings(): Promise<Settings> {

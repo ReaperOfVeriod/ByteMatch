@@ -3,6 +3,7 @@ import type { Job } from "pg-boss";
 import { closeDb, db } from "../db/client";
 import { projects, reports, type Project } from "../db/schema";
 import { pruneReports } from "../db/store";
+import { pruneSharedThemes } from "../db/themes";
 import { commentOnRun } from "../github/comments";
 import { importFromDecompDev } from "../ingest/decompdev";
 import { ingestRunById, pollProject, recordError } from "../ingest/github";
@@ -116,7 +117,10 @@ export async function startWorker() {
   );
   await b.work(
     JOBS.prune,
-    handle(JOBS.prune, async () => ({ pruned: await pruneReports(config().REPORT_RETENTION_DAYS) })),
+    handle(JOBS.prune, async () => ({
+      pruned: await pruneReports(config().REPORT_RETENTION_DAYS),
+      unusedThemes: await pruneSharedThemes(),
+    })),
   );
 
   const every = c.POLL_INTERVAL_MINUTES;
