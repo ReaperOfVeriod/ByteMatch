@@ -31,7 +31,7 @@
     "check": "yarn format:check && yarn lint && yarn typecheck && yarn test"
   },
   "dependencies": {
-    "@octokit/webhooks": "^14.2.0",
+    "@octokit/webhooks-methods": "^6.0.0",
     "@resvg/resvg-js": "^2.6.2",
     "drizzle-orm": "^0.45.4",
     "fflate": "^0.8.3",

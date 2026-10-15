@@ -1654,7 +1654,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@octokit/webhooks@npm:^14.0.0, @octokit/webhooks@npm:^14.2.0":
+"@octokit/webhooks@npm:^14.0.0":
   version: 14.2.0
   resolution: "@octokit/webhooks@npm:14.2.0"
   dependencies:
@@ -2927,7 +2927,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "bytematch@workspace:."
   dependencies:
-    "@octokit/webhooks": "npm:^14.2.0"
+    "@octokit/webhooks-methods": "npm:^6.0.0"
     "@resvg/resvg-js": "npm:^2.6.2"
     "@tailwindcss/postcss": "npm:^4.3.3"
     "@types/node": "npm:^24.19.2"
