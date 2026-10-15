@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CompareChart, type CompareSeries } from "@/components/compare-chart";
 import { COMPARE_COLORS } from "@/lib/chart-colors";
 import { ExternalImage } from "@/components/external-image";
@@ -7,7 +7,7 @@ import { GameCard } from "@/components/game-card";
 import { ProjectList } from "@/components/project-list";
 import { ChevronRight } from "@/components/ui/icons";
 import { history } from "@/db/store";
-import { byProgress, gameArt, loadGames } from "@/lib/game-data";
+import { byProgress, gameArt, loadGames, redirectSlug } from "@/lib/game-data";
 import { platformName } from "@/lib/platforms";
 import { breadcrumbJsonLd, browseMetadata, gameJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
@@ -17,9 +17,13 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ slug: string }> };
 
 async function find(slug: string) {
-  const { games } = await loadGames();
+  const { games, aliases } = await loadGames();
   const game = games.find((g) => g.slug === slug);
-  return game ? { game, games } : null;
+  if (game) return { game, games };
+  // An old or differently spelled name of a game (merged, retitled): send links there for good.
+  const target = redirectSlug(slug, games, aliases.games);
+  if (target) permanentRedirect(`/games/${target}`);
+  return null;
 }
 
 export async function generateMetadata({ params }: Params) {

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { GameCard } from "@/components/game-card";
 import { ChevronRight } from "@/components/ui/icons";
-import { loadGames } from "@/lib/game-data";
+import { loadGames, redirectSlug } from "@/lib/game-data";
 import { breadcrumbJsonLd, browseMetadata, gameListJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 
@@ -11,7 +11,12 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ slug: string }> };
 
 async function find(slug: string) {
-  return (await loadGames()).franchises.find((f) => f.slug === slug) ?? null;
+  const { franchises, aliases } = await loadGames();
+  const found = franchises.find((f) => f.slug === slug);
+  if (found) return found;
+  const target = redirectSlug(slug, franchises, aliases.franchises);
+  if (target) permanentRedirect(`/franchises/${target}`);
+  return null;
 }
 
 export async function generateMetadata({ params }: Params) {

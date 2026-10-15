@@ -71,6 +71,13 @@
       "when": 1792094164793,
       "tag": "0009_shared_theme_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792099380109,
+      "tag": "0010_name_aliases",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -221,6 +222,27 @@ export const settings = pgTable("settings", {
   value: jsonb("value").$type<unknown>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Names that mean the same game (or franchise) although they're spelled differently enough that
+ * gameKey keeps them apart ("Ratchet & Clank 2" and "Ratchet & Clank: Going Commando"). Set by
+ * admins; projects naming either then share one page, and the old page's URL redirects.
+ */
+export const nameAliases = pgTable(
+  "name_aliases",
+  {
+    kind: text("kind").$type<"game" | "franchise">().notNull(),
+    /** gameKey of the merged name. */
+    fromKey: text("from_key").notNull(),
+    /** The name as it was typed, for showing and for its old URL. */
+    fromName: text("from_name").notNull(),
+    toKey: text("to_key").notNull(),
+    toName: text("to_name").notNull(),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: created(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.fromKey] })],
+);
 
 /**
  * CI runs whose report artifact couldn't be used (no report in it, unreadable, too big). A finished

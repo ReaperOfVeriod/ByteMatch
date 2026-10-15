@@ -1,6 +1,7 @@
 import type { ProjectRow } from "@/components/project-list";
+import { loadAliases } from "@/db/aliases";
 import { projectIndex } from "@/db/store";
-import { groupFranchises, groupGames, type Game } from "./games";
+import { groupFranchises, groupGames, resolveKey, type Game } from "./games";
 import { platformName } from "./platforms";
 
 export type GameRow = ProjectRow & {
@@ -35,9 +36,23 @@ export async function gameRows(): Promise<GameRow[]> {
 }
 
 export async function loadGames() {
-  const rows = await gameRows();
-  const games = groupGames(rows);
-  return { games, franchises: groupFranchises(games), unassigned: rows.filter((r) => !r.game).length };
+  const [rows, aliases] = await Promise.all([gameRows(), loadAliases()]);
+  const games = groupGames(rows, aliases);
+  return { games, franchises: groupFranchises(games), unassigned: rows.filter((r) => !r.game).length, aliases };
+}
+
+/**
+ * For a /games/{slug} or /franchises/{slug} URL that matches nothing: the page it should redirect
+ * to, if the slug is an old or differently spelled name of one (merged, retitled, "the-…").
+ */
+export function redirectSlug<T extends { slug: string; title: string }>(
+  slug: string,
+  items: T[],
+  aliases: Map<string, string>,
+): string | null {
+  const key = resolveKey(slug.replace(/-/g, " "), aliases);
+  if (!key) return null;
+  return items.find((i) => resolveKey(i.title, aliases) === key && i.slug !== slug)?.slug ?? null;
 }
 
 /** The game's furthest-along project first; projects still syncing last. */

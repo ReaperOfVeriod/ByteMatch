@@ -11,6 +11,7 @@ import { boss, enqueue, JOBS, type JobName } from "@/lib/queue";
 import { appointAdmin, assertCanActOnProject, removeAdmin } from "@/lib/roles";
 import { clearSetting, setSetting } from "@/lib/settings";
 import { removeSharersThemes, setThemeRemoved } from "@/db/themes";
+import { addAlias, AliasError, removeAlias } from "@/db/aliases";
 
 export interface AdminState {
   error?: string;
@@ -131,6 +132,34 @@ export async function discardJob(form: FormData) {
   await (await boss()).deleteJob(name, ids);
   await audit(actor, "discard-job", name, ids.length === 1 ? { id: ids[0] } : { count: ids.length });
   revalidatePath("/admin/jobs");
+}
+
+// ---- Game and franchise names ----
+
+export async function mergeNamesAction(_: AdminState, form: FormData): Promise<AdminState> {
+  const actor = await requireAdmin();
+  const kind = form.get("kind") === "franchise" ? "franchise" : "game";
+  const from = String(form.get("from") ?? "").trim();
+  const to = String(form.get("to") ?? "").trim();
+  try {
+    await addAlias(kind, from, to, actor.id);
+  } catch (e) {
+    if (e instanceof AliasError) return { error: e.message };
+    throw e;
+  }
+  await audit(actor, `merge-${kind}`, from, { into: to });
+  revalidatePath("/admin/games");
+  revalidatePath("/games", "layout");
+  return { message: `“${from}” now groups with “${to}”.` };
+}
+
+export async function unmergeNameAction(form: FormData) {
+  const actor = await requireAdmin();
+  const kind = form.get("kind") === "franchise" ? "franchise" : "game";
+  const key = String(form.get("key"));
+  if (await removeAlias(kind, key)) await audit(actor, `unmerge-${kind}`, key);
+  revalidatePath("/admin/games");
+  revalidatePath("/games", "layout");
 }
 
 // ---- Shared themes ----

@@ -146,3 +146,76 @@ export function ThemeSharingForm({
     </form>
   );
 }
+
+/** One-click merge of two names, for the likely-duplicates list. */
+export function MergeButton({
+  action,
+  kind,
+  from,
+  to,
+}: {
+  action: (s: AdminState, f: FormData) => Promise<AdminState>;
+  kind: "game" | "franchise";
+  from: string;
+  to: string;
+}) {
+  const [state, run, pending] = useActionState(action, {});
+  return (
+    <form action={run} className="inline">
+      <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="from" value={from} />
+      <input type="hidden" name="to" value={to} />
+      <button disabled={pending} className="rounded-lg px-2 py-1 text-left text-xs text-accent hover:bg-accent/10">
+        {pending ? "Merging…" : `Merge into “${to}”`}
+      </button>
+      {state.error ? <span className="ml-2 text-xs text-bad">{state.error}</span> : null}
+    </form>
+  );
+}
+
+/** Merge any two names, including ones that look nothing alike (regional titles). */
+export function MergeForm({
+  action,
+  games,
+  franchises,
+}: {
+  action: (s: AdminState, f: FormData) => Promise<AdminState>;
+  games: string[];
+  franchises: string[];
+}) {
+  const [state, run, pending] = useActionState(action, {});
+  const [kind, setKind] = useState<"game" | "franchise">("game");
+  const list = kind === "game" ? games : franchises;
+  return (
+    <form action={run} className="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+      <label className="grid gap-1.5 text-sm">
+        Kind
+        <select name="kind" value={kind} onChange={(e) => setKind(e.target.value as "game" | "franchise")} className="field">
+          <option value="game">Game</option>
+          <option value="franchise">Franchise</option>
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-sm">
+        Name to merge
+        <input name="from" required list="merge-names" className="field" placeholder="Ratchet & Clank 2" autoComplete="off" />
+      </label>
+      <label className="grid gap-1.5 text-sm">
+        Into
+        <input name="to" required list="merge-names" className="field" placeholder="Ratchet & Clank: Going Commando" autoComplete="off" />
+      </label>
+      <button disabled={pending} className="btn btn-primary">
+        {pending ? "Merging…" : "Merge"}
+      </button>
+      <datalist id="merge-names">
+        {list.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+      {state.error ? (
+        <p className="text-sm text-bad sm:col-span-4">{state.error}</p>
+      ) : state.message ? (
+        <p className="text-sm text-ink-2 sm:col-span-4">{state.message}</p>
+      ) : null}
+    </form>
+  );
+}
