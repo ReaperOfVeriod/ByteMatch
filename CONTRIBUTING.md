@@ -81,6 +81,9 @@ Prettier formats and ESLint lints.
 
 Run `yarn check` before opening a pull request.
 
+Colours come from the theme's palette slots, never literals; see [docs/theming.md](docs/theming.md)
+before adding one.
+
 ## Commits
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/).

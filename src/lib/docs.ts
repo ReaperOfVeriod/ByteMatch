@@ -45,6 +45,12 @@ export const DOCS = [
     group: "Development",
     summary: "Development setup, tests, code style and commit standard.",
   },
+  {
+    slug: "theming",
+    file: "docs/theming.md",
+    group: "Development",
+    summary: "The thirteen palette slots, derived colours, and the rules for adding colour.",
+  },
 ] as const;
 
 export type DocSlug = (typeof DOCS)[number]["slug"];
