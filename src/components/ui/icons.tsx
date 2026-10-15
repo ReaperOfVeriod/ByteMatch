@@ -71,6 +71,15 @@ export const Plus = (p: IconProps) => (
   </Svg>
 );
 
+export const Swatch = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 2.5a5.5 5.5 0 100 11c.9 0 1.25-.6 1.25-1.15 0-.75-.6-1-.6-1.6 0-.6.45-1 1.1-1h1.4A2.35 2.35 0 0013.5 7.4C13.5 4.7 11.05 2.5 8 2.5z" />
+    <circle cx="5.25" cy="7.25" r=".6" />
+    <circle cx="7.5" cy="5" r=".6" />
+    <circle cx="10.5" cy="5.6" r=".6" />
+  </Svg>
+);
+
 /** GitHub's mark, filled (it is a logo, not a stroke icon). */
 export function GitHubMark({ className, size = 16 }: IconProps) {
   return (

@@ -3,11 +3,14 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentSession } from "@/auth/session";
+import { InlineScript } from "@/components/inline-script";
 import { JsonLd } from "@/components/json-ld";
 import { MobileMenu } from "@/components/mobile-menu";
+import { ThemePicker } from "@/components/theme-picker";
 import { Chat } from "@/components/ui/icons";
 import { siteJsonLd, siteMetadata } from "@/lib/seo";
 import { config } from "@/lib/config";
+import { BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +37,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const discord = config().SITE_DISCORD_URL.trim();
   const navLink = "rounded-lg px-3 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink";
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} style={{ colorScheme: "dark" }}>
+    // The <head> script writes the chosen theme onto <html> before first paint, so React must
+    // accept that inline style rather than reset it.
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <InlineScript html={BOOT_SCRIPT} />
+      </head>
       <body className="min-h-screen font-sans antialiased">
         <JsonLd data={siteJsonLd()} />
         <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
@@ -74,6 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       Admin
                     </Link>
                   ) : null}
+                  <ThemePicker />
                   <span className="mx-1 hidden items-center gap-2 text-sm text-ink-3 lg:flex">
                     {session.user.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- a 20px avatar from GitHub
@@ -90,6 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/manage/new" className={navLink}>
                     Submit a project
                   </Link>
+                  <ThemePicker />
                   <Link href="/login" className="btn btn-ghost ml-1 h-8 px-3">
                     Sign in
                   </Link>
@@ -97,6 +107,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               )}
             </div>
             <div className="ml-auto flex items-center gap-2 md:hidden">
+              <ThemePicker />
               {session ? null : (
                 <Link href="/login" className="btn btn-ghost h-9 px-3">
                   Sign in
