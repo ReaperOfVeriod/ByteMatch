@@ -170,23 +170,38 @@ their toolbar to match. Slate keeps the static `src/app/icon.svg`.
 
 ## Sharing themes
 
-A theme copies as one line of text:
+Every custom theme someone saves gets a **share code**: an adjective, an animal and a number, like
+`brave-otter-12` (`src/lib/theme-codes.ts`; about 369,000 of them). The code is shown on the theme in
+**Your themes**, with **Copy code** and **Copy link** buttons that say "Copied" once they have.
+
+- **Typing a code** under "Add a theme by its code" looks the theme up as soon as the text looks like
+  a code. Case, spaces, underscores, a leading `#` or a whole pasted link all work. The theme is
+  shown, with its name, colours and layout, before **Add and use** adds it.
+- **The link** `/theme/<code>` shows the theme's colours and layout, with **Try it on this page**,
+  which previews it across the whole site without saving, and **Add to my themes and use it**.
+- Adding a theme you already have just switches to it. A different theme with a name you already
+  use is added with a number (and, being a different theme, gets its own code).
+
+Codes live in the `shared_themes` table (`src/db/themes.ts`). A code points at a theme's content:
+the same name, colours and style always get the same code, and editing a theme gives it a new one
+while the old code keeps showing the old version. Nobody owns a code, so sharing needs no account.
+To stop one browser flooding the table, each address may create 30 new codes an hour (re-sharing
+an existing theme doesn't count). Only a salted hash of the address is kept, for that count.
+
+Underneath, a theme still has a text form, which is what travels between the browser and the server
+and what Albedo themes are pasted in as:
 
 ```
 bytematch-theme:2:{"name":"Dusk","palette":{"bg":"#0b0f17", … all thirteen slots …},"style":{"layout":"directory", …}}
 ```
 
-`parseTheme` reads it back and refuses anything that is not `#rrggbb` in every colour slot.
-Unknown style values fall back to Classic's. It also reads version 1 (no style, so Classic) and
-Albedo's format (`albedo-theme:1:`): `bg`, `panel`, `edge`, `fg`, `dim` and `accent` become the
-neutrals and accent, and `success`, `danger` and `warn` become `good`, `bad` and `warn`. The data
-slots come from Slate. Saved themes and the cookie are checked again each time they are read, so a
-hand-edited value can only ever produce hex colours and known style words.
-
-On `/theme`, **Paste theme** reads the clipboard; pressing Ctrl+V (⌘V) anywhere on the page does
-the same, unless a field has focus. A valid theme is saved and switched to straight away, and the
-note that follows offers **Edit it** and **Undo**. A name already in use gets a number, and the note
-says so. Anything else gets a note saying what is wrong.
+The code field accepts this text too. `parseTheme` reads it and refuses anything that is not
+`#rrggbb` in every colour slot; unknown style values fall back to Classic's. It also reads version 1
+(no style, so Classic) and Albedo's format (`albedo-theme:1:`): `bg`, `panel`, `edge`, `fg`, `dim`
+and `accent` become the neutrals and accent, and `success`, `danger` and `warn` become `good`, `bad`
+and `warn`. The data slots come from Slate. Shared themes, saved themes and the cookie are all
+checked by the same parser each time they are read, so no stored value can produce anything but hex
+colours and known style words.
 
 ## Adding to the interface
 

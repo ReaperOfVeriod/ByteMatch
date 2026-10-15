@@ -37,8 +37,8 @@ project switches by changing the domain and keeps its history with a one-click i
   progress chart, games group into franchises, and an activity feed shows milestones (first past
   50%, 90%, a full match) and the week's biggest gains.
 - **Themes**: colours (Slate by default, Light, Graphite and seven accent themes) and layouts
-  (Classic, or the flat, card-based Directory), picked from the header, plus your own, shared as
-  one line of text.
+  (Classic, or the flat, card-based Directory), picked from the header, plus your own, shared by a
+  short code like `brave-otter-12` or its link.
 - **Self-hostable**: Next.js, PostgreSQL and a background worker. No Redis. Runs with pm2 or
   containers.
 
