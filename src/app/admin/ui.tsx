@@ -114,3 +114,35 @@ export function AppointForm({ action }: { action: (s: AdminState, f: FormData) =
     </form>
   );
 }
+
+export function ThemeSharingForm({
+  action,
+  paused,
+  dailyLimit,
+}: {
+  action: (s: AdminState, f: FormData) => Promise<AdminState>;
+  paused: boolean;
+  dailyLimit: number;
+}) {
+  const [state, run, pending] = useActionState(action, {});
+  return (
+    <form action={run} className="grid gap-3">
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="paused" defaultChecked={paused} className="size-4 accent-[var(--bad)]" /> Pause sharing new themes
+        <span className="text-xs text-ink-3">(existing codes keep working)</span>
+      </label>
+      <label className="grid max-w-xs gap-1.5 text-sm">
+        New codes allowed per day, site-wide
+        <input name="dailyLimit" type="number" min={0} max={1000000} defaultValue={dailyLimit} className="field" required />
+      </label>
+      <button disabled={pending} className="btn btn-primary justify-self-start">
+        {pending ? "Saving…" : "Save"}
+      </button>
+      {state.error ? (
+        <p className="text-sm text-bad">{state.error}</p>
+      ) : state.message ? (
+        <p className="text-sm text-ink-2">{state.message}</p>
+      ) : null}
+    </form>
+  );
+}

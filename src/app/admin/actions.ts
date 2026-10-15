@@ -10,6 +10,7 @@ import { audit, block, clearProjectLinks, deleteProject, setProjectsEnabled, unb
 import { boss, enqueue, JOBS, type JobName } from "@/lib/queue";
 import { appointAdmin, assertCanActOnProject, removeAdmin } from "@/lib/roles";
 import { clearSetting, setSetting } from "@/lib/settings";
+import { removeSharersThemes, setThemeRemoved } from "@/db/themes";
 
 export interface AdminState {
   error?: string;
@@ -130,6 +131,37 @@ export async function discardJob(form: FormData) {
   await (await boss()).deleteJob(name, ids);
   await audit(actor, "discard-job", name, ids.length === 1 ? { id: ids[0] } : { count: ids.length });
   revalidatePath("/admin/jobs");
+}
+
+// ---- Shared themes ----
+
+export async function setThemeRemovedAction(form: FormData) {
+  const actor = await requireAdmin();
+  const code = String(form.get("code"));
+  const removed = form.get("removed") === "true";
+  if (await setThemeRemoved(code, removed)) await audit(actor, removed ? "remove-theme" : "restore-theme", code);
+  revalidatePath("/admin/themes");
+}
+
+export async function removeSharerAction(form: FormData) {
+  const actor = await requireAdmin();
+  const sharer = String(form.get("sharer"));
+  const n = await removeSharersThemes(sharer);
+  await audit(actor, "remove-sharer-themes", sharer.slice(0, 12), { count: n });
+  revalidatePath("/admin/themes");
+}
+
+export async function setThemeSharingAction(_: AdminState, form: FormData): Promise<AdminState> {
+  const actor = await requireOwner();
+  const paused = form.get("paused") === "on";
+  const limit = Number(form.get("dailyLimit"));
+  if (!Number.isInteger(limit) || limit < 0 || limit > 1_000_000)
+    return { error: "The daily limit should be a whole number up to 1,000,000." };
+  await setSetting("themeSharingPaused", paused);
+  await setSetting("themeDailyLimit", limit);
+  await audit(actor, "set-theme-sharing", null, { paused, dailyLimit: limit });
+  revalidatePath("/admin/themes");
+  return { message: "Saved." };
 }
 
 // ---- Settings ----
