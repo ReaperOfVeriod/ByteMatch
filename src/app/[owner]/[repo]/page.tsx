@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ProjectView } from "@/components/project-view";
-import { findProject } from "@/db/store";
+import { findProject, hasImportedHistory } from "@/db/store";
+import { projectMetadataFor } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +9,9 @@ type Params = { params: Promise<{ owner: string; repo: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { owner, repo } = await params;
-  const p = await findProject(owner, repo);
-  return { title: p?.name ?? `${owner}/${repo}` };
+  const project = await findProject(owner, repo).catch(() => undefined);
+  const importedFromDecompDev = project ? await hasImportedHistory(project.id).catch(() => false) : false;
+  return projectMetadataFor(owner, repo, undefined, { importedFromDecompDev });
 }
 
 export default async function Page({ params }: Params) {

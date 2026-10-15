@@ -21,8 +21,8 @@ const RANGES = [
 ] as const;
 
 const SERIES = [
-  { key: "code", label: "Code matched", color: "var(--series-1)" },
-  { key: "functions", label: "Functions matched", color: "var(--series-2)" },
+  { key: "code", label: "Code matched", color: "var(--done)" },
+  { key: "functions", label: "Functions matched", color: "var(--series-1)" },
 ] as const;
 
 const W = 760;
@@ -97,14 +97,9 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
             </li>
           ))}
         </ul>
-        <div className="ml-auto flex rounded-md border border-line p-0.5 text-xs" role="group" aria-label="Time range">
+        <div className="segmented ml-auto" role="group" aria-label="Time range">
           {RANGES.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setRange(r.id)}
-              aria-pressed={range === r.id}
-              className={`rounded px-2 py-1 ${range === r.id ? "bg-surface-2 text-ink" : "text-ink-3 hover:text-ink"}`}
-            >
+            <button key={r.id} onClick={() => setRange(r.id)} aria-pressed={range === r.id}>
               {r.label}
             </button>
           ))}
@@ -160,18 +155,18 @@ export function HistoryChart({ points }: { points: HistoryPoint[] }) {
         </svg>
         {h ? (
           <div
-            className="pointer-events-none absolute top-2 z-10 w-64 rounded-md border border-line bg-surface p-2.5 text-xs shadow-md"
+            className="pointer-events-none absolute top-2 z-10 w-64 rounded-xl border border-line-strong bg-surface-2 p-3 text-xs shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)]"
             style={x(h.t) > W / 2 ? { left: `${(PAD.left / W) * 100}%` } : { right: `${(PAD.right / W) * 100}%` }}
           >
             <div className="text-ink-3">{fmtDate.format(h.t)}</div>
             <div className="mt-0.5 truncate font-medium">{h.message?.split("\n")[0] ?? h.sha.slice(0, 7)}</div>
             <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1">
-              <span className="inline-block h-0.5 w-3 rounded" style={{ background: "var(--series-1)" }} />
+              <span className="inline-block h-0.5 w-3 rounded" style={{ background: "var(--done)" }} />
               <span className="text-ink-2">Code matched</span>
-              <span className="font-mono tabular-nums">{h.code.toFixed(2)}%</span>
-              <span className="inline-block h-0.5 w-3 rounded" style={{ background: "var(--series-2)" }} />
+              <span className="font-mono">{h.code.toFixed(2)}%</span>
+              <span className="inline-block h-0.5 w-3 rounded" style={{ background: "var(--series-1)" }} />
               <span className="text-ink-2">Functions</span>
-              <span className="font-mono tabular-nums">
+              <span className="font-mono">
                 {fmtInt.format(h.matchedFunctions)} / {fmtInt.format(h.totalFunctions)}
               </span>
             </div>

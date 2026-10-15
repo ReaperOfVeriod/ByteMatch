@@ -1,69 +1,101 @@
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentSession } from "@/auth/session";
-import { config, signInConfigured } from "@/lib/config";
+import { JsonLd } from "@/components/json-ld";
+import { siteJsonLd, siteMetadata } from "@/lib/seo";
+import { config } from "@/lib/config";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const c = config();
-  return {
-    title: { default: c.SITE_NAME, template: `%s · ${c.SITE_NAME}` },
-    description: "Progress tracking for matching decompilation projects.",
-    metadataBase: new URL(c.PUBLIC_URL),
-  };
+  return siteMetadata();
+}
+
+/** ByteMatch's mark: four units, three matched. */
+function Mark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden className="shrink-0">
+      <rect x="1" y="1" width="11" height="11" rx="2.5" fill="var(--done)" />
+      <rect x="13.5" y="1" width="5.5" height="5.5" rx="1.5" fill="var(--done)" />
+      <rect x="13.5" y="8" width="5.5" height="11" rx="1.5" fill="var(--partial)" />
+      <rect x="1" y="13.5" width="11" height="5.5" rx="1.5" fill="var(--done)" />
+    </svg>
+  );
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await currentSession().catch(() => null);
   const name = config().SITE_NAME;
+  const navLink = "rounded-lg px-3 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink";
   return (
-    <html lang="en" className="dark" style={{ colorScheme: "dark" }}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} style={{ colorScheme: "dark" }}>
       <body className="min-h-screen font-sans antialiased">
-        <header className="border-b border-line bg-surface">
-          <nav className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-            <Link href="/" className="font-mono text-[15px] font-semibold tracking-tight">
+        <JsonLd data={siteJsonLd()} />
+        <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
+          <nav className="mx-auto flex h-14 max-w-6xl items-center gap-1 px-4">
+            <Link href="/" className="mr-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+              <Mark />
               {name}
             </Link>
-            <Link href="/" className="text-sm text-ink-2 hover:text-ink">
+            <Link href="/" className={`${navLink} hidden sm:block`}>
               Projects
             </Link>
-            <a href="https://github.com/Veradictus/ByteMatch/tree/master/docs" className="text-sm text-ink-2 hover:text-ink">
+            <Link href="/docs" className={navLink}>
               Docs
-            </a>
-            <div className="ml-auto flex items-center gap-4 text-sm">
+            </Link>
+            <div className="ml-auto flex items-center gap-1">
               {session ? (
                 <>
-                  <Link href="/manage" className="text-ink-2 hover:text-ink">
+                  <Link href="/manage" className={navLink}>
                     Manage
                   </Link>
-                  <span className="hidden text-ink-3 sm:inline">{session.user.login}</span>
+                  <span className="mx-1 hidden items-center gap-2 text-sm text-ink-3 md:flex">
+                    {session.user.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- a 20px avatar from GitHub
+                      <img src={`${session.user.avatarUrl}&s=40`} alt="" width={20} height={20} className="rounded-full" />
+                    ) : null}
+                    {session.user.login}
+                  </span>
                   <form action="/auth/logout" method="post">
-                    <button className="text-ink-2 hover:text-ink">Sign out</button>
+                    <button className={navLink}>Sign out</button>
                   </form>
                 </>
-              ) : signInConfigured() ? (
-                // A route handler that redirects to GitHub, not a page: a plain link, never prefetched.
-                // eslint-disable-next-line @next/next/no-html-link-for-pages
-                <a href="/auth/login" className="rounded-md border border-line px-3 py-1.5 text-ink-2 hover:text-ink">
-                  Sign in with GitHub
-                </a>
-              ) : null}
+              ) : (
+                <>
+                  <Link href="/manage/new" className={`${navLink} hidden sm:block`}>
+                    Submit a project
+                  </Link>
+                  <Link href="/login" className="btn btn-ghost ml-1 h-8 px-3">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 pt-4 pb-10 text-xs text-ink-3">
-          {name} tracks matching decompilation progress from{" "}
-          <a className="underline" href="https://github.com/encounter/objdiff">
-            objdiff
-          </a>{" "}
-          reports.{" "}
-          <a className="underline" href="https://github.com/Veradictus/ByteMatch">
-            Source
-          </a>{" "}
-          (GPL-3.0).
+        <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+        <footer className="border-t border-line">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-xs text-ink-3">
+            <span>
+              {name} tracks matching decompilation progress from{" "}
+              <a className="underline hover:text-ink" href="https://github.com/encounter/objdiff">
+                objdiff
+              </a>{" "}
+              reports.
+            </span>
+            <Link href="/docs" className="hover:text-ink">
+              Docs
+            </Link>
+            <Link href="/docs/migrating-from-decomp-dev" className="hover:text-ink">
+              Coming from decomp.dev?
+            </Link>
+            <a href="https://github.com/Veradictus/ByteMatch" className="hover:text-ink sm:ml-auto">
+              Source (GPL-3.0)
+            </a>
+          </div>
         </footer>
       </body>
     </html>

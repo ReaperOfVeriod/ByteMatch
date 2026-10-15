@@ -1,52 +1,191 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /*
- * Colour tokens. ByteMatch is dark only. Surfaces and series follow the dataviz reference palette's
- * dark steps: series-1 (blue) is code matched, series-2 (orange) is functions matched.
+ * ByteMatch is dark only, on blue-slate neutrals. Text tokens hold ≥5:1 on every surface.
+ * Data colours: --series-1 (blue) is code matched, --series-2 (orange) functions matched;
+ * the unit grid uses --done (matched), --partial (started) and --idle (untouched).
  */
 :root {
   color-scheme: dark;
-  --bg: #121211;
-  --surface: #1a1a19;
-  --surface-2: #232322;
-  --line: #2f2f2d;
-  --text: #f0efec;
-  --text-2: #c3c2b7;
-  --text-3: #9a998f;
-  --accent: #3987e5;
+  --bg: #0b0f17;
+  --surface: #111723;
+  --surface-2: #18202f;
+  --surface-3: #1f2939;
+  --line: #253047;
+  --line-strong: #33415e;
+  --text: #e6ecf5;
+  --text-2: #aab6c9;
+  --text-3: #8592a8;
+  --accent: #5b9cf5;
+  --accent-strong: #3b7fe0;
   --series-1: #3987e5;
   --series-2: #d95926;
-  --track: #2c2c2a;
-  --good: #3fae3f;
-  --bad: #e66767;
-  --code-bg: #232322;
+  --track: #1f2939;
+  --done: #2f9e44;
+  --partial: #2563b8;
+  --idle: #343c4b;
+  --good: #46b964;
+  --bad: #ef6b6b;
+  --code-bg: #0e131d;
+  --ring: rgb(91 156 245 / 0.55);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--text);
   --color-ink-2: var(--text-2);
   --color-ink-3: var(--text-3);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
   --color-track: var(--track);
+  --color-done: var(--done);
+  --color-partial: var(--partial);
+  --color-idle: var(--idle);
   --color-good: var(--good);
   --color-bad: var(--bad);
   --color-code: var(--code-bg);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-panel: 1rem;
+  --radius-control: 0.625rem;
+}
+
+html {
+  background: var(--bg);
+  scrollbar-color: var(--line-strong) var(--bg);
 }
 
 body {
-  background: var(--bg);
+  background: radial-gradient(1200px 520px at 50% -220px, rgb(59 127 224 / 0.12), transparent 70%), var(--bg);
+  background-repeat: no-repeat;
+  color: var(--text);
+  caret-color: var(--accent);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: rgb(91 156 245 / 0.35);
   color: var(--text);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+/* Numbers in data line up. */
+.tabular,
+table,
+code,
+kbd {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  /* A section of the page: its own bordered, rounded surface. */
+  .panel {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-panel);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.02) inset,
+      0 12px 32px -18px rgb(0 0 0 / 0.6);
+  }
+
+  /* Text fields share one look with the selects. */
+  .field {
+    height: 2.5rem;
+    width: 100%;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    padding: 0 0.875rem;
+    font-size: 0.875rem;
+    color: var(--text);
+    transition:
+      border-color 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+  .field::placeholder {
+    color: var(--text-3);
+  }
+  .field:hover {
+    border-color: var(--line-strong);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgb(91 156 245 / 0.18);
+  }
+
+  .btn {
+    display: inline-flex;
+    height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-control);
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--accent-strong);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #4a8be8;
+  }
+  .btn-ghost {
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-2);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
+
+  /* Segmented control (time ranges, toggles). */
+  .segmented {
+    display: inline-flex;
+    gap: 2px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    padding: 3px;
+  }
+  .segmented > button {
+    border-radius: 0.45rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    color: var(--text-3);
+  }
+  .segmented > button:hover {
+    color: var(--text);
+  }
+  .segmented > button[aria-pressed="true"] {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }

@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { squarify } from "./treemap";
+import { Close, Search } from "./ui/icons";
+import { Select } from "./ui/select";
 import { parseUnitFilter } from "./unit-filter";
 
 export interface MapUnit {
@@ -25,9 +27,9 @@ const W = 1000;
 const H = 560;
 const fmt = new Intl.NumberFormat("en-US");
 
-const GREEN = "#2f9e44";
-const BLUE = "#2563b8";
-const GREY = "#3a3a37";
+const GREEN = "var(--done)";
+const BLUE = "var(--partial)";
+const GREY = "var(--idle)";
 
 /**
  * A tile fills with green from the bottom by its matched share; the rest is blue where work has
@@ -89,31 +91,29 @@ export function UnitMap({
   return (
     <div>
       <div className="mb-3 grid gap-2 sm:grid-cols-[14rem_1fr]">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          aria-label="Category"
-          className="h-10 rounded-md border border-line bg-surface px-3 text-sm"
-        >
+        <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
           <option value="">All</option>
           {usedCategories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name || c.id}
             </option>
           ))}
-        </select>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter, e.g. camera <70% >10kb"
-          aria-label="Filter units"
-          className="h-10 rounded-md border border-line bg-surface px-3 text-sm"
-        />
+        </Select>
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter, e.g. camera <70% >10kb"
+            aria-label="Filter units"
+            className="field pl-10"
+          />
+        </div>
       </div>
 
       <div
-        className="relative w-full overflow-hidden rounded-md bg-surface"
+        className="relative w-full overflow-hidden rounded-xl border border-line bg-bg"
         style={{ aspectRatio: `${W} / ${H}` }}
         onMouseLeave={() => setHover(null)}
       >
@@ -133,14 +133,14 @@ export function UnitMap({
               width: `${(w / W) * 100}%`,
               height: `${(h / H) * 100}%`,
               background: tileBackground(u),
-              boxShadow: selected?.name === u.name ? "inset 0 0 0 2px #f0efec" : "inset 0 0 0 0.5px rgb(0 0 0 / 0.55)",
+              boxShadow: selected?.name === u.name ? "inset 0 0 0 2px var(--text)" : "inset 0 0 0 0.5px rgb(4 7 12 / 0.7)",
             }}
           />
         ))}
         {rects.length === 0 ? <p className="p-6 text-sm text-ink-3">No units match.</p> : null}
         {hover ? (
           <div
-            className="pointer-events-none absolute z-20 max-w-72 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs shadow-lg"
+            className="pointer-events-none absolute z-20 max-w-72 rounded-xl border border-line-strong bg-surface-2 px-3 py-2 text-xs shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)]"
             style={{ left: hover.x + 12, top: hover.y + 12, transform: hover.x > 640 ? "translateX(calc(-100% - 24px))" : undefined }}
           >
             <div className="truncate font-mono">{hover.unit.name}</div>
@@ -162,7 +162,7 @@ export function UnitMap({
 
       <div ref={panel}>
         {selected ? (
-          <div className="mt-4 rounded-md border border-line bg-surface p-4">
+          <div className="mt-4 rounded-xl border border-line bg-surface-2/60 p-4">
             <div className="flex items-start gap-3">
               <div className="min-w-0">
                 <div className="truncate font-mono text-sm">{selected.name}</div>
@@ -171,8 +171,12 @@ export function UnitMap({
                   {fmt.format(selected.totalFunctions)} functions · {size(selected.totalCode)}
                 </div>
               </div>
-              <button onClick={() => setSelected(null)} className="ml-auto text-xs text-ink-3 hover:text-ink" aria-label="Close">
-                Close
+              <button
+                onClick={() => setSelected(null)}
+                className="ml-auto rounded-lg p-1.5 text-ink-3 hover:bg-surface-3 hover:text-ink"
+                aria-label="Close unit details"
+              >
+                <Close size={14} />
               </button>
             </div>
             {functions === "loading" ? <p className="mt-3 text-xs text-ink-3">Loading…</p> : null}
@@ -186,7 +190,7 @@ export function UnitMap({
                       style={{ background: f.fuzzy_match_percent >= 100 ? GREEN : f.fuzzy_match_percent > 0 ? BLUE : GREY }}
                     />
                     <span className="truncate font-mono">{f.name}</span>
-                    <span className="ml-auto shrink-0 font-mono text-ink-3 tabular-nums">
+                    <span className="ml-auto shrink-0 font-mono text-ink-3">
                       {f.fuzzy_match_percent >= 100 ? "" : `${f.fuzzy_match_percent.toFixed(0)}%`}
                     </span>
                   </li>
