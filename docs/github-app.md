@@ -45,6 +45,13 @@ Leave every other permission at "No access".
 - Installation and Installation repositories (installation events are always sent)
 - Repository
 
+### Turn off user token expiry
+
+On the App's page, open **Optional features** and opt out of **User-to-server token expiration**.
+ByteMatch keeps a signed-in user's GitHub token for the length of the session (30 days) to check
+which repositories they administer. With expiry on, GitHub revokes it after 8 hours and those checks
+start failing.
+
 ## 2. Generate the private key
 
 On the App's page, under **Private keys**, choose **Generate a private key**. GitHub downloads a
