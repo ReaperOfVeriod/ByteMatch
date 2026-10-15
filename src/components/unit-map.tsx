@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
-import { squarify } from "./treemap";
+import { grouped, ordered, squarify, type Rect } from "./treemap";
 import { parseUnitFilter } from "./unit-filter";
 import { ChevronRight, Close, Search } from "./ui/icons";
 import { Select } from "./ui/select";
@@ -32,6 +32,7 @@ interface Tile {
   matched: number;
   fuzzy: number;
   detail: string;
+  address?: number;
   unit?: MapUnit;
 }
 
@@ -108,6 +109,7 @@ export function UnitMap({
   const search = useSearchParams();
   const [, start] = useTransition();
   const openUnit = search.get("unit");
+  const layout = search.get("layout") === "size" ? "size" : "ordered";
   const unit = useMemo(() => units.find((u) => u.name === openUnit) ?? null, [units, openUnit]);
 
   const [category, setCategory] = useState("");
@@ -117,6 +119,14 @@ export function UnitMap({
   const [functions, setFunctions] = useState<Record<string, FunctionRow[] | "error">>({});
   const grid = useRef<HTMLDivElement>(null);
   const box = useBox(grid);
+
+  const setLayout = (next: "ordered" | "size") => {
+    const qs = new URLSearchParams(search.toString());
+    if (next === "size") qs.set("layout", "size");
+    else qs.delete("layout");
+    const s = qs.toString();
+    start(() => router.replace(`${path}${s ? `?${s}` : ""}`, { scroll: false }));
+  };
 
   const navigate = useCallback(
     (unitName: string | null) => {
@@ -170,6 +180,7 @@ export function UnitMap({
           size: f.size,
           matched: f.fuzzy_match_percent >= 100 ? 100 : 0,
           fuzzy: f.fuzzy_match_percent,
+          address: f.address ?? 0,
           detail: `${f.address !== null ? `0x${f.address.toString(16).toUpperCase().padStart(8, "0")} · ` : ""}${bytes(f.size)} · ${f.fuzzy_match_percent >= 100 ? "matched" : `${f.fuzzy_match_percent.toFixed(1)}% match`}`,
         }));
     }
@@ -186,7 +197,23 @@ export function UnitMap({
       }));
   }, [openUnit, loaded, units, category, query]);
 
-  const rects = useMemo(() => (box.w && box.h ? squarify(tiles, (t) => t.size, box.w, box.h) : []), [tiles, box.w, box.h]);
+  // "Ordered": code order (units grouped by folder, functions by address); "size": biggest first.
+  const { rects, groups } = useMemo((): { rects: Rect<Tile>[]; groups: Rect<string>[] } => {
+    if (!box.w || !box.h) return { rects: [], groups: [] };
+    if (layout === "size") return { rects: squarify(tiles, (t) => t.size, box.w, box.h), groups: [] };
+    if (openUnit) {
+      const byAddress = [...tiles].sort((a, b) => (a.address ?? 0) - (b.address ?? 0));
+      return { rects: ordered(byAddress, (t) => t.size, box.w, box.h), groups: [] };
+    }
+    const g = grouped(
+      tiles,
+      (t) => t.label,
+      (t) => t.size,
+      box.w,
+      box.h,
+    );
+    return { rects: g.tiles, groups: g.groups };
+  }, [tiles, box.w, box.h, layout, openUnit]);
   const usedCategories = useMemo(() => categories.filter((c) => units.some((u) => u.categories.includes(c.id))), [categories, units]);
   const shownBytes = tiles.reduce((n, t) => n + t.size, 0);
   const info = focus ?? pinned;
@@ -249,7 +276,7 @@ export function UnitMap({
               ) : null}
             </>
           ) : (
-            <span>{openUnit ? "Hover a function for details" : "Hover a unit for details; click to open it"}</span>
+            <span>{openUnit ? "Point at or tap a function for details" : "Point at a unit for details; select it to open"}</span>
           )}
         </div>
       </div>
@@ -279,6 +306,14 @@ export function UnitMap({
             }}
           />
         ))}
+        {groups.map((g) => (
+          <div
+            key={`g:${g.item}`}
+            aria-hidden
+            className="pointer-events-none absolute"
+            style={{ left: g.x, top: g.y, width: g.w, height: g.h, boxShadow: "inset 0 0 0 1.5px rgb(3 6 12 / 0.9)" }}
+          />
+        ))}
         {openUnit && !loaded ? <p className="absolute inset-0 grid place-items-center text-sm text-ink-3">Loading functions…</p> : null}
         {loaded === "error" ? (
           <p className="absolute inset-0 grid place-items-center text-sm text-bad">Could not load this unit&apos;s functions.</p>
@@ -298,7 +333,20 @@ export function UnitMap({
             {l.label}
           </span>
         ))}
-        <span className="ml-auto">
+        <div className="segmented ml-auto" role="group" aria-label="Grid layout">
+          <button
+            type="button"
+            aria-pressed={layout === "ordered"}
+            onClick={() => setLayout("ordered")}
+            title="Code order: units grouped by folder, functions by address"
+          >
+            Ordered
+          </button>
+          <button type="button" aria-pressed={layout === "size"} onClick={() => setLayout("size")} title="Largest first">
+            By size
+          </button>
+        </div>
+        <span>
           {fmt.format(tiles.length)} {openUnit ? "functions" : "units"} · {bytes(shownBytes)}
           {openUnit ? " · Esc to go back" : ""}
         </span>
