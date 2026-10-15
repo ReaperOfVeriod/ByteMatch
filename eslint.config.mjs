@@ -24,6 +24,13 @@ export default defineConfig([
       "no-console": "off",
     },
   },
+  {
+    // CommonJS config files (pm2's ecosystem file) load modules with require().
+    files: ["**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   // Must stay last: turns off stylistic rules that would conflict with Prettier.
   prettier,
   globalIgnores([".next/**", "out/**", "build/**", "dist/**", "drizzle/**", "node_modules/**", "coverage/**", "next-env.d.ts"]),
