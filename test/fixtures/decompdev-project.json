@@ -1,0 +1,81 @@
+{
+  "id": 1361920188,
+  "owner": "OpenRAC",
+  "repo": "rac1-decomp",
+  "repo_url": "https://github.com/OpenRAC/rac1-decomp",
+  "name": "Ratchet & Clank (PAL)",
+  "short_name": null,
+  "platform": "ps2",
+  "default_version": "SCES_509.16",
+  "default_category": null,
+  "commit": {
+    "sha": "9a8143337c49794a9b6588d253f79683ad1484ce",
+    "message": "Merge pull request #73 from OpenRAC/feat/pure-c-round2\n\nfeat(overlays): 38 more functions in C, qcopy helpers allowed",
+    "timestamp": "2026-10-14T23:02:04Z"
+  },
+  "measures": {
+    "fuzzy_match_percent": 81.91024,
+    "total_code": 465700,
+    "matched_code": 381372,
+    "matched_code_percent": 81.892204,
+    "total_data": 0,
+    "matched_data": 0,
+    "matched_data_percent": 0.0,
+    "total_functions": 1680,
+    "matched_functions": 1516,
+    "matched_functions_percent": 90.2381,
+    "complete_code": 201380,
+    "complete_code_percent": 43.24243,
+    "complete_data": 0,
+    "complete_data_percent": 0.0,
+    "total_units": 0,
+    "complete_units": 0
+  },
+  "report_versions": ["SCES_509.16"],
+  "report_categories": [
+    {
+      "id": "executable",
+      "name": "Executable",
+      "measures": {
+        "fuzzy_match_percent": 81.91024,
+        "total_code": 465700,
+        "matched_code": 381372,
+        "matched_code_percent": 81.892204,
+        "total_data": 0,
+        "matched_data": 0,
+        "matched_data_percent": 0.0,
+        "total_functions": 1680,
+        "matched_functions": 1516,
+        "matched_functions_percent": 90.2381,
+        "complete_code": 201380,
+        "complete_code_percent": 43.24243,
+        "complete_data": 0,
+        "complete_data_percent": 0.0,
+        "total_units": 0,
+        "complete_units": 0
+      }
+    },
+    {
+      "id": "level_code",
+      "name": "Level code",
+      "measures": {
+        "fuzzy_match_percent": 88.47635,
+        "total_code": 3247108,
+        "matched_code": 2812448,
+        "matched_code_percent": 86.61394,
+        "total_data": 0,
+        "matched_data": 0,
+        "matched_data_percent": 0.0,
+        "total_functions": 3429,
+        "matched_functions": 3004,
+        "matched_functions_percent": 87.60571,
+        "complete_code": 410436,
+        "complete_code_percent": 12.640048,
+        "complete_data": 0,
+        "complete_data_percent": 0.0,
+        "total_units": 0,
+        "complete_units": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+[
+  {
+    "timestamp": "2026-10-14T23:02:04Z",
+    "commit_sha": "9a8143337c49794a9b6588d253f79683ad1484ce",
+    "commit_message": "Merge pull request #73 from OpenRAC/feat/pure-c-round2\n\nfeat(overlays): 38 more functions in C, qcopy helpers allowed",
+    "measures": {
+      "fuzzy_match_percent": 87.652756,
+      "total_code": 3712808,
+      "matched_code": 3193820,
+      "matched_code_percent": 86.02168,
+      "total_data": 0,
+      "matched_data": 0,
+      "matched_data_percent": 0.0,
+      "total_functions": 5109,
+      "matched_functions": 4520,
+      "matched_functions_percent": 88.47133,
+      "complete_code": 611816,
+      "complete_code_percent": 16.478525,
+      "complete_data": 0,
+      "complete_data_percent": 0.0,
+      "total_units": 141,
+      "complete_units": 89
+    }
+  },
+  {
+    "timestamp": "2026-10-14T21:21:20Z",
+    "commit_sha": "9d10e94620095d1b530dffc7ddded4da3aebd265",
+    "commit_message": "Merge pull request #72 from OpenRAC/feat/pure-c-lombyte-ports\n\nfeat(overlays): 50 pure-C ports, plus #69, #70 and #71 merged",
+    "measures": {
+      "fuzzy_match_percent": 85.98189,
+      "total_code": 3712808,
+      "matched_code": 3131784,
+      "matched_code_percent": 84.35082,
+      "total_data": 0,
+      "matched_data": 0,
+      "matched_data_percent": 0.0,
+      "total_functions": 5109,
+      "matched_functions": 4482,
+      "matched_functions_percent": 87.72754,
+      "complete_code": 482572,
+      "complete_code_percent": 12.997494,
+      "complete_data": 0,
+      "complete_data_percent": 0.0,
+      "total_units": 141,
+      "complete_units": 88
+    }
+  },
+  {
+    "timestamp": "2026-10-14T20:59:35Z",
+    "commit_sha": "3e53c2d696f551aa5a612d466660ea8543e5c4f5",
+    "commit_message": "Merge pull request #69 from cnobis/feat/ports-2\n\nfeat(overlays): fifteen functions adapted from the NTSC decomp",
+    "measures": {
+      "fuzzy_match_percent": 84.53805,
+      "total_code": 3712808,
+      "matched_code": 3069448,
+      "matched_code_percent": 82.671875,
+      "total_data": 0,
+      "matched_data": 0,
+      "matched_data_percent": 0.0,
+      "total_functions": 5109,
+      "matched_functions": 4389,
+      "matched_functions_percent": 85.90722,
+      "complete_code": 482572,
+      "complete_code_percent": 12.997494,
+      "complete_data": 0,
+      "complete_data_percent": 0.0,
+      "total_units": 141,
+      "complete_units": 88
+    }
+  },
+  {
+    "timestamp": "2026-10-14T11:53:57Z",
+    "commit_sha": "e1ee2ee37ba5b1ad8110132c1717ef94cb39acb0",
+    "commit_message": "Merge pull request #67 from cblackler19/codex-exact-matches-oct14\n\nfeat(overlays): exact-match Gaspar and Rilgar functions",
+    "measures": {
+      "fuzzy_match_percent": 84.35374,
+      "total_code": 3712808,
+      "matched_code": 3059008,
+      "matched_code_percent": 82.390686,
+      "total_data": 0,
+      "matched_data": 0,
+      "matched_data_percent": 0.0,
+      "total_functions": 5109,
+      "matched_functions": 4372,
+      "matched_functions_percent": 85.57448,
+      "complete_code": 482572,
+      "complete_code_percent": 12.997494,
+      "complete_data": 0,
+      "complete_data_percent": 0.0,
+      "total_units": 141,
+      "complete_units": 88
+    }
+  },
+  {
+    "timestamp": "2026-10-14T11:52:45Z",
+    "commit_sha": "70f7489d678883cddf346746db62d7e783ba1e5c",
+    "commit_message": "Merge pull request #66 from OpenRAC/feat/port-backfill\n\nFeat/port backfill",
+    "measures": {
+      "fuzzy_match_percent": 84.35374,
+      "total_code": 3712808,
+      "matched_code": 3059008,
+      "matched_code_percent": 82.390686,
+      "total_data": 0,
+      "matched_data": 0,
+      "matched_data_percent": 0.0,
+      "total_functions": 5109,
+      "matched_functions": 4372,
+      "matched_functions_percent": 85.57448,
+      "complete_code": 482572,
+      "complete_code_percent": 12.997494,
+      "complete_data": 0,
+      "complete_data_percent": 0.0,
+      "total_units": 141,
+      "complete_units": 88
+    }
+  }
+]
