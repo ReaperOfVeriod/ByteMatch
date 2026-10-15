@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { squarify } from "./treemap";
-import { Close, Search } from "./ui/icons";
-import { Select } from "./ui/select";
 import { parseUnitFilter } from "./unit-filter";
+import { ChevronRight, Close, Search } from "./ui/icons";
+import { Select } from "./ui/select";
 
 export interface MapUnit {
   name: string;
@@ -23,27 +24,69 @@ interface FunctionRow {
   address: number | null;
 }
 
-const W = 1000;
-const H = 560;
-const fmt = new Intl.NumberFormat("en-US");
-
-const GREEN = "var(--done)";
-const BLUE = "var(--partial)";
-const GREY = "var(--idle)";
-
-/**
- * A tile fills with green from the bottom by its matched share; the rest is blue where work has
- * started (fuzzy match above what is matched) and grey where nothing has.
- */
-function tileBackground(u: MapUnit): string {
-  const matched = Math.max(0, Math.min(100, u.matchedCodePercent));
-  if (matched >= 100) return GREEN;
-  const rest = u.fuzzy > matched + 0.01 ? BLUE : GREY;
-  return matched <= 0 ? rest : `linear-gradient(to top, ${GREEN} ${matched}%, ${rest} ${matched}%)`;
+/** What a tile stands for: a unit at the top level, a function inside a unit. */
+interface Tile {
+  key: string;
+  label: string;
+  size: number;
+  matched: number;
+  fuzzy: number;
+  detail: string;
+  unit?: MapUnit;
 }
 
-const size = (bytes: number) =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
+const fmt = new Intl.NumberFormat("en-US");
+const bytes = (n: number) =>
+  n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
+
+// ---- Tile shading: one hue per state, lit from the centre and falling off to the edges. ----
+
+type Rgb = [number, number, number];
+const hex = (c: Rgb) =>
+  `#${c
+    .map((v) =>
+      Math.round(Math.max(0, Math.min(255, v)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const scale = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
+
+const DONE: Rgb = [31, 168, 64];
+const IDLE: Rgb = [46, 55, 72];
+const BLUE_LOW: Rgb = [14, 58, 104];
+const BLUE_HIGH: Rgb = [37, 134, 214];
+
+function baseColor(matched: number, fuzzy: number): Rgb {
+  if (matched >= 100) return DONE;
+  if (fuzzy <= 0) return IDLE;
+  return mix(BLUE_LOW, BLUE_HIGH, Math.min(1, fuzzy / 100));
+}
+
+function shade(matched: number, fuzzy: number): string {
+  const base = baseColor(matched, fuzzy);
+  return `radial-gradient(ellipse 85% 85% at 50% 42%, ${hex(scale(base, 1.18))} 0%, ${hex(base)} 52%, ${hex(scale(base, 0.62))} 100%)`;
+}
+
+const LEGEND = [
+  { label: "Matched", color: hex(DONE) },
+  { label: "In progress", color: hex(mix(BLUE_LOW, BLUE_HIGH, 0.7)) },
+  { label: "Not started", color: hex(IDLE) },
+];
+
+/** The grid's pixel size: full width, and as tall as the screen allows so the page needn't scroll. */
+function useBox(ref: React.RefObject<HTMLDivElement | null>) {
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBox({ w: Math.floor(e.contentRect.width), h: Math.floor(e.contentRect.height) }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return box;
+}
 
 export function UnitMap({
   units,
@@ -51,164 +94,215 @@ export function UnitMap({
   owner,
   repo,
   version,
+  commit,
 }: {
   units: MapUnit[];
   categories: { id: string; name: string }[];
   owner: string;
   repo: string;
   version: string;
+  commit: string | null;
 }) {
+  const router = useRouter();
+  const path = usePathname();
+  const search = useSearchParams();
+  const [, start] = useTransition();
+  const openUnit = search.get("unit");
+  const unit = useMemo(() => units.find((u) => u.name === openUnit) ?? null, [units, openUnit]);
+
   const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
-  const [hover, setHover] = useState<{ unit: MapUnit; x: number; y: number } | null>(null);
-  const [selected, setSelected] = useState<MapUnit | null>(null);
-  const [functions, setFunctions] = useState<FunctionRow[] | "loading" | "error" | null>(null);
-  const panel = useRef<HTMLDivElement>(null);
+  const [focus, setFocus] = useState<Tile | null>(null);
+  const [pinned, setPinned] = useState<Tile | null>(null);
+  const [functions, setFunctions] = useState<Record<string, FunctionRow[] | "error">>({});
+  const grid = useRef<HTMLDivElement>(null);
+  const box = useBox(grid);
 
-  const usedCategories = useMemo(() => categories.filter((c) => units.some((u) => u.categories.includes(c.id))), [categories, units]);
-  const shown = useMemo(() => {
-    const test = parseUnitFilter(query);
-    return units.filter((u) => (!category || u.categories.includes(category)) && test(u));
-  }, [units, category, query]);
-  const rects = useMemo(() => squarify(shown, (u) => u.totalCode, W, H), [shown]);
-  const shownBytes = shown.reduce((n, u) => n + u.totalCode, 0);
+  const navigate = useCallback(
+    (unitName: string | null) => {
+      const next = new URLSearchParams(search.toString());
+      if (unitName) next.set("unit", unitName);
+      else next.delete("unit");
+      const qs = next.toString();
+      setPinned(null);
+      setFocus(null);
+      setQuery("");
+      start(() => router.push(`${path}${qs ? `?${qs}` : ""}`, { scroll: false }));
+    },
+    [router, path, search],
+  );
 
-  const request = useRef(0);
-  const select = (u: MapUnit) => {
-    const id = ++request.current;
-    setSelected(u);
-    setFunctions("loading");
-    fetch(`/api/v1/projects/${owner}/${repo}/units?version=${encodeURIComponent(version)}&unit=${encodeURIComponent(u.name)}`)
+  // Load the open unit's functions once; they don't change for a given commit.
+  const key = `${commit ?? "latest"}:${openUnit}`;
+  const loaded = openUnit ? functions[key] : undefined;
+  useEffect(() => {
+    if (!openUnit || loaded) return;
+    let live = true;
+    const qs = new URLSearchParams({ version, unit: openUnit, ...(commit ? { commit } : {}) });
+    fetch(`/api/v1/projects/${owner}/${repo}/units?${qs}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(
-        (d: { functions: FunctionRow[] }) =>
-          id === request.current && setFunctions(d.functions.sort((a, b) => (a.address ?? 0) - (b.address ?? 0))),
-      )
-      .catch(() => id === request.current && setFunctions("error"));
-    requestAnimationFrame(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
-  };
+      .then((d: { functions: FunctionRow[] }) => live && setFunctions((f) => ({ ...f, [key]: d.functions })))
+      .catch(() => live && setFunctions((f) => ({ ...f, [key]: "error" })));
+    return () => {
+      live = false;
+    };
+  }, [openUnit, loaded, key, owner, repo, version, commit]);
+
+  // Escape goes up a level.
+  useEffect(() => {
+    if (!openUnit) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) navigate(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openUnit, navigate]);
+
+  const tiles: Tile[] = useMemo(() => {
+    const test = parseUnitFilter(query);
+    if (openUnit) {
+      const list = Array.isArray(loaded) ? loaded : [];
+      return list
+        .filter((f) => test({ name: f.name, totalCode: f.size, matchedCodePercent: f.fuzzy_match_percent }))
+        .map((f) => ({
+          key: `${f.name}@${f.address}`,
+          label: f.name,
+          size: f.size,
+          matched: f.fuzzy_match_percent >= 100 ? 100 : 0,
+          fuzzy: f.fuzzy_match_percent,
+          detail: `${f.address !== null ? `0x${f.address.toString(16).toUpperCase().padStart(8, "0")} · ` : ""}${bytes(f.size)} · ${f.fuzzy_match_percent >= 100 ? "matched" : `${f.fuzzy_match_percent.toFixed(1)}% match`}`,
+        }));
+    }
+    return units
+      .filter((u) => (!category || u.categories.includes(category)) && test(u))
+      .map((u) => ({
+        key: u.name,
+        label: u.name,
+        size: u.totalCode,
+        matched: u.matchedCodePercent,
+        fuzzy: u.fuzzy,
+        detail: `${bytes(u.totalCode)} · ${u.matchedCodePercent.toFixed(2)}% matched · ${fmt.format(u.matchedFunctions)} / ${fmt.format(u.totalFunctions)} functions`,
+        unit: u,
+      }));
+  }, [openUnit, loaded, units, category, query]);
+
+  const rects = useMemo(() => (box.w && box.h ? squarify(tiles, (t) => t.size, box.w, box.h) : []), [tiles, box.w, box.h]);
+  const usedCategories = useMemo(() => categories.filter((c) => units.some((u) => u.categories.includes(c.id))), [categories, units]);
+  const shownBytes = tiles.reduce((n, t) => n + t.size, 0);
+  const info = focus ?? pinned;
 
   return (
     <div>
-      <div className="mb-3 grid gap-2 sm:grid-cols-[14rem_1fr]">
-        <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
-          <option value="">All</option>
-          {usedCategories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name || c.id}
-            </option>
-          ))}
-        </Select>
+      <div className="mb-3 grid gap-2 sm:grid-cols-[14rem_minmax(0,1fr)]">
+        {openUnit ? (
+          <button onClick={() => navigate(null)} className="btn btn-ghost justify-start">
+            <ChevronRight size={14} className="rotate-180" />
+            All units
+          </button>
+        ) : (
+          <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+            <option value="">All</option>
+            {usedCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name || c.id}
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="relative">
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter, e.g. camera <70% >10kb"
-            aria-label="Filter units"
+            placeholder={openUnit ? "Filter functions, e.g. <100% >512b" : "Filter, e.g. camera <70% >10kb"}
+            aria-label={openUnit ? "Filter functions" : "Filter units"}
             className="field pl-10"
           />
         </div>
       </div>
 
+      {/* Breadcrumb and the one-line readout for whatever is under the pointer (or pinned). */}
+      <div className="mb-2 flex min-h-6 items-center gap-2 text-sm">
+        <nav aria-label="Unit path" className="flex min-w-0 shrink-0 items-center gap-1.5">
+          {openUnit ? (
+            <>
+              <button onClick={() => navigate(null)} className="text-accent hover:underline">
+                Units
+              </button>
+              <ChevronRight size={12} className="text-ink-3" />
+              <span className="max-w-[18rem] truncate font-mono text-[13px] text-ink">{openUnit}</span>
+            </>
+          ) : (
+            <span className="text-ink-2">Units</span>
+          )}
+        </nav>
+        <div className="ml-auto flex min-w-0 items-center gap-2 text-xs text-ink-3">
+          {info ? (
+            <>
+              <span className="truncate font-mono text-ink-2">{info.label}</span>
+              <span className="hidden shrink-0 sm:inline">{info.detail}</span>
+              {pinned && !focus ? (
+                <button onClick={() => setPinned(null)} className="rounded p-0.5 hover:text-ink" aria-label="Clear selection">
+                  <Close size={12} />
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <span>{openUnit ? "Hover a function for details" : "Hover a unit for details; click to open it"}</span>
+          )}
+        </div>
+      </div>
+
       <div
+        ref={grid}
         className="relative w-full overflow-hidden rounded-xl border border-line bg-bg"
-        style={{ aspectRatio: `${W} / ${H}` }}
-        onMouseLeave={() => setHover(null)}
+        style={{ height: "clamp(360px, calc(100vh - 360px), 720px)" }}
+        onMouseLeave={() => setFocus(null)}
       >
-        {rects.map(({ item: u, x, y, w, h }) => (
+        {rects.map(({ item: t, x, y, w, h }) => (
           <button
-            key={u.name}
-            onClick={() => select(u)}
-            onMouseMove={(e) => {
-              const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-              setHover({ unit: u, x: e.clientX - box.left, y: e.clientY - box.top });
-            }}
-            aria-label={`${u.name}, ${u.matchedCodePercent.toFixed(1)}% matched`}
-            className="absolute hover:brightness-125 focus-visible:z-10"
+            key={t.key}
+            type="button"
+            tabIndex={-1}
+            onMouseEnter={() => setFocus(t)}
+            onClick={() => (t.unit ? navigate(t.unit.name) : setPinned((p) => (p?.key === t.key ? null : t)))}
+            aria-label={`${t.label}: ${t.detail}`}
+            className="absolute transition-[filter] duration-100 hover:brightness-125"
             style={{
-              left: `${(x / W) * 100}%`,
-              top: `${(y / H) * 100}%`,
-              width: `${(w / W) * 100}%`,
-              height: `${(h / H) * 100}%`,
-              background: tileBackground(u),
-              boxShadow: selected?.name === u.name ? "inset 0 0 0 2px var(--text)" : "inset 0 0 0 0.5px rgb(4 7 12 / 0.7)",
+              left: x,
+              top: y,
+              width: w,
+              height: h,
+              background: shade(t.matched, t.fuzzy),
+              boxShadow: pinned?.key === t.key ? "inset 0 0 0 2px #fff" : "inset 0 0 0 0.5px rgb(3 6 12 / 0.75)",
             }}
           />
         ))}
-        {rects.length === 0 ? <p className="p-6 text-sm text-ink-3">No units match.</p> : null}
-        {hover ? (
-          <div
-            className="pointer-events-none absolute z-20 max-w-72 rounded-xl border border-line-strong bg-surface-2 px-3 py-2 text-xs shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)]"
-            style={{ left: hover.x + 12, top: hover.y + 12, transform: hover.x > 640 ? "translateX(calc(-100% - 24px))" : undefined }}
-          >
-            <div className="truncate font-mono">{hover.unit.name}</div>
-            <div className="text-ink-2">
-              {hover.unit.matchedCodePercent.toFixed(1)}% · {size(hover.unit.totalCode)}
-            </div>
-          </div>
+        {openUnit && !loaded ? <p className="absolute inset-0 grid place-items-center text-sm text-ink-3">Loading functions…</p> : null}
+        {loaded === "error" ? (
+          <p className="absolute inset-0 grid place-items-center text-sm text-bad">Could not load this unit&apos;s functions.</p>
+        ) : null}
+        {openUnit && !unit && Array.isArray(loaded) && loaded.length === 0 ? (
+          <p className="absolute inset-0 grid place-items-center text-sm text-ink-3">This unit has no functions.</p>
+        ) : null}
+        {!openUnit && rects.length === 0 && box.w ? (
+          <p className="absolute inset-0 grid place-items-center text-sm text-ink-3">No units match.</p>
         ) : null}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
-        <Swatch color={GREEN} label="Matched" />
-        <Swatch color={BLUE} label="Partly matched" />
-        <Swatch color={GREY} label="Not started" />
+        {LEGEND.map((l) => (
+          <span key={l.label} className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: l.color }} />
+            {l.label}
+          </span>
+        ))}
         <span className="ml-auto">
-          {fmt.format(shown.length)} units · {size(shownBytes)}
+          {fmt.format(tiles.length)} {openUnit ? "functions" : "units"} · {bytes(shownBytes)}
+          {openUnit ? " · Esc to go back" : ""}
         </span>
       </div>
-
-      <div ref={panel}>
-        {selected ? (
-          <div className="mt-4 rounded-xl border border-line bg-surface-2/60 p-4">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0">
-                <div className="truncate font-mono text-sm">{selected.name}</div>
-                <div className="mt-0.5 text-xs text-ink-2">
-                  {selected.matchedCodePercent.toFixed(2)}% matched · {fmt.format(selected.matchedFunctions)} /{" "}
-                  {fmt.format(selected.totalFunctions)} functions · {size(selected.totalCode)}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelected(null)}
-                className="ml-auto rounded-lg p-1.5 text-ink-3 hover:bg-surface-3 hover:text-ink"
-                aria-label="Close unit details"
-              >
-                <Close size={14} />
-              </button>
-            </div>
-            {functions === "loading" ? <p className="mt-3 text-xs text-ink-3">Loading…</p> : null}
-            {functions === "error" ? <p className="mt-3 text-xs text-bad">Could not load functions.</p> : null}
-            {Array.isArray(functions) ? (
-              <ul className="mt-3 grid gap-x-6 gap-y-0.5 text-xs sm:grid-cols-2">
-                {functions.map((f) => (
-                  <li key={`${f.name}@${f.address}`} className="flex items-center gap-2">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: f.fuzzy_match_percent >= 100 ? GREEN : f.fuzzy_match_percent > 0 ? BLUE : GREY }}
-                    />
-                    <span className="truncate font-mono">{f.name}</span>
-                    <span className="ml-auto shrink-0 font-mono text-ink-3">
-                      {f.fuzzy_match_percent >= 100 ? "" : `${f.fuzzy_match_percent.toFixed(0)}%`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
     </div>
-  );
-}
-
-function Swatch({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="size-2.5 rounded-sm" style={{ background: color }} />
-      {label}
-    </span>
   );
 }

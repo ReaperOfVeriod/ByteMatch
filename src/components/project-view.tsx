@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Project } from "@/db/schema";
+import type { Measures } from "@/report/types";
 import { findProject, hasImportedHistory, history, latestFullReport, loadReport } from "@/db/store";
 import { projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
@@ -10,7 +12,8 @@ import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
 import { ExternalImage } from "./external-image";
-import { ChevronRight } from "./ui/icons";
+import { ChevronRight, GitHubMark } from "./ui/icons";
+import { VersionSelect } from "./version-select";
 import { HistoryChart, type HistoryPoint } from "./history-chart";
 import { ProgressBar } from "./progress-bar";
 import { UnitMap, type MapUnit } from "./unit-map";
@@ -74,25 +77,67 @@ function Syncing({ project }: { project: Project }) {
   );
 }
 
-export async function ProjectView({ owner, repo, version }: { owner: string; repo: string; version?: string }) {
+/** The code bar: fully linked (solid), matched (striped), and the rest of the fuzzy match (faint stripes). */
+function CodeBar({ m }: { m: Measures }) {
+  const linked = Math.min(100, m.complete_code_percent);
+  const matched = Math.max(0, Math.min(100, m.matched_code_percent) - linked);
+  const fuzzy = Math.max(0, Math.min(100, m.fuzzy_match_percent) - linked - matched);
+  const stripes = (a: string, b: string) => `repeating-linear-gradient(135deg, ${a} 0 7px, ${b} 7px 14px)`;
+  return (
+    <div>
+      <div
+        className="flex h-4 w-full overflow-hidden rounded-full bg-track"
+        role="img"
+        aria-label={`${m.complete_code_percent.toFixed(2)}% fully linked, ${m.matched_code_percent.toFixed(2)}% matched, ${m.fuzzy_match_percent.toFixed(2)}% fuzzy match`}
+      >
+        <div className="h-full bg-done" style={{ width: `${linked}%` }} />
+        <div className="h-full" style={{ width: `${matched}%`, background: stripes("var(--done)", "#25863d") }} />
+        <div className="h-full" style={{ width: `${fuzzy}%`, background: stripes("#3b4a63", "#2c3850") }} />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-done" /> Fully linked {m.complete_code_percent.toFixed(2)}%
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm" style={{ background: stripes("var(--done)", "#25863d") }} /> Matched{" "}
+          {m.matched_code_percent.toFixed(2)}%
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm" style={{ background: stripes("#3b4a63", "#2c3850") }} /> Fuzzy{" "}
+          {m.fuzzy_match_percent.toFixed(2)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export async function ProjectView({ owner, repo, version, commit }: { owner: string; repo: string; version?: string; commit?: string }) {
   let r;
   try {
-    r = await resolve(owner, repo, version ? decodeURIComponent(version) : undefined, null);
+    r = await resolve(owner, repo, version ? decodeURIComponent(version) : undefined, null, commit);
   } catch (e) {
     if (!(e instanceof NotFound)) throw e;
     // A registered project whose first reports have not arrived yet: say so instead of 404.
-    const pending = version ? undefined : await findProject(owner, repo);
+    const pending = version || commit ? undefined : await findProject(owner, repo);
     if (!pending?.enabled) notFound();
     return <Syncing project={pending} />;
   }
   const { project, measures: m, row } = r;
   const base = `/${project.owner}/${project.repo}`;
-  const [rows, fullRow, imported] = await Promise.all([
+  const pagePath = version ? `${base}/${encodeURIComponent(r.version)}` : base;
+  const [rows, latestFull, imported] = await Promise.all([
     history(project.id, r.version),
-    latestFullReport(project.id, r.version),
+    commit ? Promise.resolve(undefined) : latestFullReport(project.id, r.version),
     hasImportedHistory(project.id),
   ]);
-  const report = fullRow ? await loadReport(fullRow) : null;
+  // A past commit shows its own units (if its full report is stored); the latest view shows the newest stored breakdown.
+  const unitsRow = commit ? (row.blobId ? row : undefined) : latestFull;
+  const report = unitsRow ? await loadReport(unitsRow) : null;
+
+  const at = rows.findIndex((h) => h.commitSha === row.commitSha);
+  const older = at > 0 ? rows[at - 1] : undefined;
+  const newer = at >= 0 && at < rows.length - 1 ? rows[at + 1] : undefined;
+  const commitHref = (sha?: string) => (sha && sha !== rows.at(-1)?.commitSha ? `${pagePath}?commit=${sha.slice(0, 12)}` : pagePath);
 
   const points: HistoryPoint[] = rows.map((h) => ({
     t: h.commitTimestamp.getTime(),
@@ -125,79 +170,116 @@ export async function ProjectView({ owner, repo, version }: { owner: string; rep
   const previous = new Map(rows.map((h, i) => [h.commitSha, rows[i - 1]?.measures]));
   const site = config().PUBLIC_URL;
   const versionPath = version ? `/${encodeURIComponent(r.version)}` : "";
+  const navBtn = "btn btn-ghost h-9 flex-1 px-3 text-sm";
+  const navOff = "btn h-9 flex-1 cursor-not-allowed border border-line px-3 text-sm text-ink-3 opacity-50";
 
   return (
-    <div className="mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)] gap-5">
+    <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-5">
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
+
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
+        <Link href="/" className="text-ink-3 hover:text-ink">
+          Projects
+        </Link>
+        <ChevronRight size={12} className="text-ink-3" />
+        <Link href={base} className="max-w-[60vw] truncate font-medium text-ink hover:underline">
+          {project.name}
+        </Link>
+        <ChevronRight size={12} className="text-ink-3" />
+        {r.versions.length > 1 ? (
+          <VersionSelect base={base} versions={r.versions} current={r.version} defaultVersion={project.defaultVersion ?? r.versions[0]} />
+        ) : (
+          <span className="font-mono text-xs text-ink-2">{r.version}</span>
+        )}
+        <a href={repoUrl(project)} className="btn btn-ghost ml-auto h-9 px-3 text-sm">
+          <GitHubMark size={14} />
+          Repository
+        </a>
+      </nav>
+
       <section className="panel overflow-hidden">
         {project.imageUrl ? (
-          <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-64 w-full border-b border-line object-cover" />
+          <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
         ) : null}
         <div className="p-6 sm:p-7">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-              {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
-            </h1>
-            {r.versions.length > 1 ? (
-              <nav className="segmented ml-auto flex-wrap" aria-label="Game version">
-                {r.versions.map((v) => (
-                  <Link
-                    key={v}
-                    href={`${base}/${encodeURIComponent(v)}`}
-                    aria-current={v === r.version ? "page" : undefined}
-                    className={`rounded-[0.45rem] px-2.5 py-1 font-mono text-xs ${v === r.version ? "bg-surface-3 text-ink" : "text-ink-3 hover:text-ink"}`}
-                  >
-                    {v}
-                  </Link>
-                ))}
-              </nav>
-            ) : null}
-          </div>
-          <div className="mt-1 text-sm text-ink-3">
-            <a href={repoUrl(project)} className="hover:text-ink">
-              {project.owner}/{project.repo}
-            </a>
-            {project.platform ? ` · ${platformName(project.platform)}` : ""} · {r.version}
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            {project.name} is {m.matched_code_percent.toFixed(2)}% decompiled
+          </h1>
+          <p className="mt-1 text-base font-medium text-ink-3">
+            {m.complete_code_percent.toFixed(2)}% fully linked
+            {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
+          </p>
 
           <div className="mt-6">
-            <div className="mb-1.5 text-sm text-ink-2">
+            <div className="mb-2 text-sm text-ink-2">
               Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
             </div>
-            <div
-              className="h-3 w-full overflow-hidden rounded-full bg-track"
-              role="meter"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Number(m.matched_code_percent.toFixed(2))}
-              aria-label="Code matched"
-            >
-              <div className="h-full rounded-full bg-done" style={{ width: `${Math.min(100, m.matched_code_percent)}%` }} />
-            </div>
+            <CodeBar m={m} />
           </div>
 
-          <div className="mt-5 truncate border-t border-line pt-4 font-mono text-[13px] text-ink-2">
-            <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
-              {row.commitSha.slice(0, 7)}
-            </a>{" "}
-            <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
-            <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+          <div className="mt-6 border-t border-line pt-5">
+            <div className="mb-3 truncate font-mono text-[13px] text-ink-2">
+              <a href={`${repoUrl(project)}/commit/${row.commitSha}`} className="text-accent hover:underline">
+                {row.commitSha.slice(0, 7)}
+              </a>{" "}
+              <span className="text-ink-3">|</span> {row.commitMessage?.split("\n")[0] ?? ""}
+              <span className="text-ink-3"> · {fmtDate.format(row.commitTimestamp)}</span>
+            </div>
+            <div className="flex gap-2">
+              {older ? (
+                <Link href={commitHref(older.commitSha)} className={navBtn} scroll={false}>
+                  <ChevronRight size={14} className="rotate-180" />
+                  Previous
+                </Link>
+              ) : (
+                <span className={navOff} aria-disabled>
+                  <ChevronRight size={14} className="rotate-180" />
+                  Previous
+                </span>
+              )}
+              {newer ? (
+                <Link href={commitHref(newer.commitSha)} className={navBtn} scroll={false}>
+                  Next
+                  <ChevronRight size={14} />
+                </Link>
+              ) : (
+                <span className={navOff} aria-disabled>
+                  Next
+                  <ChevronRight size={14} />
+                </span>
+              )}
+              {commit ? (
+                <Link href={pagePath} className="btn btn-primary h-9 flex-1 px-3 text-sm" scroll={false}>
+                  Latest
+                </Link>
+              ) : (
+                <span className="btn h-9 flex-1 border border-line bg-surface-2 px-3 text-sm text-ink-2" aria-current="true">
+                  Latest
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="panel p-5 sm:p-6">
-        <h2 className="mb-4 text-sm font-semibold">Units</h2>
         {report ? (
-          <UnitMap
-            units={mapUnits}
-            categories={row.categories.map((c) => ({ id: c.id, name: c.name }))}
-            owner={project.owner}
-            repo={project.repo}
-            version={r.version}
-          />
+          <Suspense fallback={<div className="h-[clamp(360px,calc(100vh-360px),720px)]" />}>
+            <UnitMap
+              units={mapUnits}
+              categories={row.categories.map((c) => ({ id: c.id, name: c.name }))}
+              owner={project.owner}
+              repo={project.repo}
+              version={r.version}
+              commit={commit ? row.commitSha : null}
+            />
+          </Suspense>
         ) : (
-          <p className="text-sm text-ink-3">No unit breakdown stored for this version yet.</p>
+          <p className="py-10 text-center text-sm text-ink-3">
+            {commit
+              ? "No unit breakdown is stored for this commit (it came from decomp.dev's history, which keeps totals only)."
+              : "No unit breakdown stored for this version yet."}
+          </p>
         )}
       </section>
 

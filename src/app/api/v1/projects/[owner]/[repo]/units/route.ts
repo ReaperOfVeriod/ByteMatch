@@ -4,13 +4,14 @@ import { NotFound, resolve } from "@/lib/project-data";
 
 export const dynamic = "force-dynamic";
 
-/** One unit's functions from the latest full report: ?version=...&unit=... */
+/** One unit's functions: ?unit=...[&version=...][&commit=<sha>] (the latest full report without commit). */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = await ctx.params;
   const q = request.nextUrl.searchParams;
   try {
-    const r = await resolve(owner, repo, q.get("version"));
-    const row = await latestFullReport(r.project.id, r.version);
+    const commit = q.get("commit");
+    const r = await resolve(owner, repo, q.get("version"), null, commit);
+    const row = commit ? (r.row.blobId ? r.row : undefined) : await latestFullReport(r.project.id, r.version);
     const report = row ? await loadReport(row) : null;
     const unit = report?.units.find((u) => u.name === q.get("unit"));
     if (!unit) throw new NotFound("Unit not found");

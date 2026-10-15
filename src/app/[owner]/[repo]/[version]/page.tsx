@@ -14,7 +14,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return projectMetadataFor(owner, repo, version, { importedFromDecompDev });
 }
 
-export default async function Page({ params }: Params) {
+export default async function Page({
+  params,
+  searchParams,
+}: Params & { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { owner, repo, version } = await params;
-  return <ProjectView owner={owner} repo={repo} version={version} />;
+  const commit = (await searchParams).commit;
+  return <ProjectView owner={owner} repo={repo} version={version} commit={typeof commit === "string" ? commit : undefined} />;
 }

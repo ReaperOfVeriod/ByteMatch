@@ -163,6 +163,18 @@ export async function reportAt(projectId: number, version: string, commitSha: st
   return row;
 }
 
+/** The report at a commit, by full SHA or a unique prefix of at least 7 characters. */
+export async function reportAtPrefix(projectId: number, version: string, sha: string): Promise<ReportRow | undefined> {
+  const clean = sha.toLowerCase();
+  if (!/^[0-9a-f]{7,64}$/.test(clean)) return undefined;
+  const rows = await db()
+    .select()
+    .from(reports)
+    .where(and(eq(reports.projectId, projectId), eq(reports.version, version), dsql`${reports.commitSha} like ${clean + "%"}`))
+    .limit(2);
+  return rows.length === 1 ? rows[0] : undefined;
+}
+
 export async function history(projectId: number, version: string) {
   return db()
     .select({

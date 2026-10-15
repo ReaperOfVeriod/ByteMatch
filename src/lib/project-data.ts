@@ -1,5 +1,5 @@
 import type { Project, ReportRow } from "../db/schema";
-import { defaultVersion, findProject, latestReport, projectVersions } from "../db/store";
+import { defaultVersion, findProject, latestReport, projectVersions, reportAtPrefix } from "../db/store";
 import { BADGE_MEASURES } from "../report/measures";
 import { MEASURE_KEYS, type Measures } from "../report/types";
 import { config } from "./config";
@@ -17,14 +17,21 @@ export interface Resolved {
 export class NotFound extends Error {}
 export class BadRequest extends Error {}
 
-export async function resolve(owner: string, repo: string, version?: string | null, category?: string | null): Promise<Resolved> {
+/** COMMIT picks a past commit (full or 7+ character SHA); the latest report otherwise. */
+export async function resolve(
+  owner: string,
+  repo: string,
+  version?: string | null,
+  category?: string | null,
+  commit?: string | null,
+): Promise<Resolved> {
   const project = await findProject(owner, repo);
   if (!project || !project.enabled) throw new NotFound("Project not found");
   const versions = (await projectVersions(project.id)).map((v) => v.version);
   const picked = version || (await defaultVersion(project));
   if (!picked || !versions.includes(picked)) throw new NotFound(version ? `Version ${version} not found` : "No reports yet");
-  const row = await latestReport(project.id, picked);
-  if (!row) throw new NotFound("No reports yet");
+  const row = commit ? await reportAtPrefix(project.id, picked, commit) : await latestReport(project.id, picked);
+  if (!row) throw new NotFound(commit ? `Commit ${commit} not found` : "No reports yet");
   const catId = category ?? project.defaultCategory;
   let cat: Resolved["category"];
   if (catId) {
