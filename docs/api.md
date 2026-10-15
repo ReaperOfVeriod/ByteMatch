@@ -326,6 +326,38 @@ The project page reads a unit's functions from
 function on the list there carries `"functional": "high" | "medium" | "low" | "unrated"`, and every
 other function `null`.
 
+## Source
+
+```
+GET /api/v1/projects/{owner}/{repo}/source?unit=<unit>[&function=<name>][&version=…][&commit=<sha>]
+```
+
+What the project page shows when you open a unit's source or select a function: the code from the
+project's repository at the commit its report came from. The report says which file a unit is
+(objdiff's `source_path`); ByteMatch fetches it from GitHub, and for a function finds its
+definition (with the comment above it), follows `__asm__("name")` labels to the C name it was
+written under, or points at the line that still includes it as assembly (`INCLUDE_ASM`,
+`GLOBAL_ASM`, `LINKER_REMNANT` and the like). When `source_path` is a directory, its files are
+searched. Files at a commit never change, so they are fetched once.
+
+```json
+{
+  "path": "src/core/00112380.c",
+  "url": "https://github.com/OpenRAC/rac1-decomp/blob/9ce9f0d…/src/core/00112380.c#L15-L17",
+  "kind": "c",
+  "start": 15,
+  "end": 17,
+  "lines": 68,
+  "code": "int func_00112380(int arg0) {\n    return (int)func_00116F68(arg0, 0, 10);\n}",
+  "commit": "9ce9f0d18098436cd05e12fa2d0476cd2b599d44"
+}
+```
+
+`kind` is `c`, `asm` (the lines around its include), `file` (the whole file, up to 4,000 lines;
+`lines` says how many there are), `directory` (with `files` linking each source file), or
+`not-found` (with the file's `url`). A unit whose report has no `source_path` is a 404 that says
+so.
+
 ## History upload
 
 ```

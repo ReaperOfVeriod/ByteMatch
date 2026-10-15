@@ -174,6 +174,14 @@ the project list and pull request comments are unchanged. On the unit map, a fun
 functional C says so, with its confidence. The manage page says how many listed functions are
 already matched, so the list can drop them.
 
+## Source on the project page
+
+On the unit map, **View source** on an opened unit shows its file, and selecting a function shows
+just that function, both from your repository at the commit of the report you're looking at, with
+a link to the lines on GitHub. ByteMatch finds the file through each unit's `source_path` in the
+report, which dtk-template and most objdiff setups fill in; a unit without one has no source to
+show.
+
 ## Manage page reference
 
 Signed-in admins of the repository can change:

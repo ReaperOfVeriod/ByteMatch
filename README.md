@@ -26,6 +26,8 @@ project switches by changing the domain and keeps its history with a one-click i
 - **Project pages**: one line of progress, then a grid of every unit (area = code size, filled green
   by how much matches). Filter it like `camera <70% >10kb`; click a unit for its functions.
   History, categories, the unit list, commits and badges are a click away.
+- **Source**: select a function on the unit map to see its code from your repository at that
+  report's commit, or open a unit's whole file.
 - **Badges** in SVG and PNG, drawn by ByteMatch itself, plus shields.io endpoint JSON.
 - **JSON API** compatible with decomp.dev: project, history, measures and full reports.
 - **Pull request comments** through a GitHub App: newly matched functions, regressions, measure
