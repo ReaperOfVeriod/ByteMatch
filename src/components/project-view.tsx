@@ -90,55 +90,119 @@ function Syncing({ project }: { project: Project }) {
 }
 
 /** The code bar: fully linked (solid), matched (striped), and the rest of the fuzzy match (faint stripes). */
+const fmtInt = new Intl.NumberFormat("en-US");
+
+interface Layer {
+  key: string;
+  label: string;
+  /** Where the layer starts and how wide it is, in percent of the bar. */
+  from: number;
+  width: number;
+  background: string;
+  /** The exact figure shown on hover. */
+  detail: string;
+}
+
 /**
  * One progress section (Code or Data): fully linked (solid), matched (striped) and, for code, the
- * rest of the fuzzy match (faint stripes). Data has no fuzzy figure in objdiff reports.
+ * rest of the fuzzy match (faint stripes). Hovering or focusing a layer shows its exact figure;
+ * hit areas sit above the bar so the tooltip isn't clipped and thin layers stay easy to point at.
  */
 function ProgressSection({
   label,
   total,
+  linkedBytes,
+  matchedBytes,
   linked,
   matched,
   fuzzy,
 }: {
   label: string;
   total: number;
+  linkedBytes: number;
+  matchedBytes: number;
   linked: number;
   matched: number;
   fuzzy?: number;
 }) {
-  const l = Math.min(100, linked);
-  const mt = Math.max(0, Math.min(100, matched) - l);
-  const fz = fuzzy === undefined ? 0 : Math.max(0, Math.min(100, fuzzy) - l - mt);
   const stripes = (a: string, b: string) => `repeating-linear-gradient(135deg, ${a} 0 7px, ${b} 7px 14px)`;
   const done = stripes("var(--done)", "#25863d");
   const faint = stripes("#3b4a63", "#2c3850");
+  const of = (bytes: number) => `${fmtInt.format(Math.round(bytes))} of ${fmtInt.format(total)} bytes (${formatBytes(Math.round(bytes))})`;
+  const l = Math.min(100, linked);
+  const mt = Math.max(0, Math.min(100, matched) - l);
+  const fz = fuzzy === undefined ? 0 : Math.max(0, Math.min(100, fuzzy) - l - mt);
+  const layers: Layer[] = [
+    {
+      key: "linked",
+      label: "Fully linked",
+      from: 0,
+      width: l,
+      background: "var(--done)",
+      detail: `${linked.toFixed(2)}% · ${of(linkedBytes)}`,
+    },
+    { key: "matched", label: "Matched", from: l, width: mt, background: done, detail: `${matched.toFixed(2)}% · ${of(matchedBytes)}` },
+    ...(fuzzy === undefined
+      ? []
+      : [
+          {
+            key: "fuzzy",
+            label: "Fuzzy match",
+            from: l + mt,
+            width: fz,
+            background: faint,
+            detail: `${fuzzy.toFixed(2)}% · ≈${of((fuzzy / 100) * total)}, counting partly matched code`,
+          },
+        ]),
+  ];
+
+  const tip = (layer: Layer) => (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-72 -translate-x-1/2 rounded-lg border border-line-strong bg-surface-2 px-2.5 py-1.5 text-xs text-ink opacity-0 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)] transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
+    >
+      <span className="font-medium">{layer.label}</span>
+      <span className="block font-mono text-ink-2">{layer.detail}</span>
+    </span>
+  );
+
   return (
     <div>
       <div className="mb-2 text-sm text-ink-2">
         {label} <span className="text-ink-3">({formatBytes(total)})</span>
       </div>
-      <div
-        className="flex h-4 w-full overflow-hidden rounded-full bg-track"
-        role="img"
-        aria-label={`${label}: ${linked.toFixed(2)}% fully linked, ${matched.toFixed(2)}% matched${fuzzy === undefined ? "" : `, ${fuzzy.toFixed(2)}% fuzzy match`}`}
-      >
-        <div className="h-full bg-done" style={{ width: `${l}%` }} />
-        <div className="h-full" style={{ width: `${mt}%`, background: done }} />
-        {fuzzy === undefined ? null : <div className="h-full" style={{ width: `${fz}%`, background: faint }} />}
+      <div className="relative">
+        <div className="flex h-4 w-full overflow-hidden rounded-full bg-track" aria-hidden>
+          {layers.map((layer) => (
+            <div key={layer.key} className="h-full" style={{ width: `${layer.width}%`, background: layer.background }} />
+          ))}
+        </div>
+        {layers
+          .filter((layer) => layer.width > 0)
+          .map((layer) => (
+            <span
+              key={layer.key}
+              tabIndex={0}
+              aria-label={`${label}, ${layer.label}: ${layer.detail}`}
+              className="group absolute -top-1 h-6 cursor-default rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              // At least 10px wide so thin layers can be pointed at; centred on the layer.
+              style={{
+                left: `calc(${layer.from + layer.width / 2}% - max(5px, ${layer.width / 2}%))`,
+                width: `max(10px, ${layer.width}%)`,
+              }}
+            >
+              {tip(layer)}
+            </span>
+          ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
-        <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm bg-done" /> Fully linked {linked.toFixed(2)}%
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: done }} /> Matched {matched.toFixed(2)}%
-        </span>
-        {fuzzy === undefined ? null : (
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm" style={{ background: faint }} /> Fuzzy {fuzzy.toFixed(2)}%
+        {layers.map((layer) => (
+          <span key={layer.key} className="group relative flex cursor-default items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: layer.background }} />
+            {layer.label} {layer.key === "linked" ? linked.toFixed(2) : layer.key === "matched" ? matched.toFixed(2) : fuzzy?.toFixed(2)}%
+            {tip(layer)}
           </span>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -260,12 +324,21 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                 <ProgressSection
                   label="Code"
                   total={m.total_code}
+                  linkedBytes={m.complete_code}
+                  matchedBytes={m.matched_code}
                   linked={m.complete_code_percent}
                   matched={m.matched_code_percent}
                   fuzzy={m.fuzzy_match_percent}
                 />
                 {m.total_data > 0 ? (
-                  <ProgressSection label="Data" total={m.total_data} linked={m.complete_data_percent} matched={m.matched_data_percent} />
+                  <ProgressSection
+                    label="Data"
+                    total={m.total_data}
+                    linkedBytes={m.complete_data}
+                    matchedBytes={m.matched_data}
+                    linked={m.complete_data_percent}
+                    matched={m.matched_data_percent}
+                  />
                 ) : null}
               </div>
 
