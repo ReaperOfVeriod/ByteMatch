@@ -1,24 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ThemeSwatch } from "@/components/theme-swatch";
+import { StyleSwatch, ThemeSwatch } from "@/components/theme-swatch";
 import { Check, Plus } from "@/components/ui/icons";
-import { useThemes } from "@/components/use-theme";
+import { useTheme } from "@/components/use-theme";
 import {
-  applyTheme,
-  chooseTheme,
-  chosenTheme,
   contrast,
   isHex,
   parseTheme,
   PRESET_IDS,
-  saveCustomThemes,
   serializeTheme,
   SLOTS,
+  STYLE_IDS,
+  STYLE_KEYS,
+  STYLE_OPTIONS,
+  STYLES,
+  styleId,
   TEXT_SLOTS,
   THEMES,
+  type Chosen,
   type Palette,
   type Slot,
+  type Style,
   type Theme,
 } from "@/lib/theme";
 
@@ -27,91 +30,150 @@ interface Draft {
   original: string | null;
   name: string;
   palette: Palette;
+  style: Style;
 }
 
+/** A note beside the thing it is about, with an optional way back. */
+interface Note {
+  tone: "good" | "bad";
+  text: string;
+  undo?: () => void;
+  edit?: Theme;
+}
+
+const sectionTitle = "text-xs font-medium tracking-wide text-ink-3 uppercase";
+
 export function ThemeStudio() {
-  const { chosenId, chosen, custom } = useThemes();
+  const { chosen, choose, preview, endPreview, custom, saveCustom } = useTheme();
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [paste, setPaste] = useState("");
-  const [message, setMessage] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
 
-  // While editing, the whole page previews the draft; leaving the editor (or the page) puts the
-  // remembered theme back. Read from storage here, not the hook, which is null while hydrating.
+  // While editing, the whole page previews the draft; leaving the editor puts the chosen theme back.
+  const editing = draft !== null;
   useEffect(() => {
-    applyTheme(draft ? draft.palette : (chosenTheme()?.palette ?? null));
-  }, [draft]);
-  useEffect(() => () => applyTheme(chosenTheme()?.palette ?? null), []);
+    if (draft) preview(draft.palette, draft.style);
+  }, [draft, preview]);
+  useEffect(() => {
+    if (!editing) endPreview();
+  }, [editing, endPreview]);
 
-  const current: Palette = chosen?.palette ?? THEMES.slate.palette;
+  const currentName =
+    custom.find((t) => `custom:${t.name}` === chosen.colours)?.name ??
+    THEMES[chosen.colours.slice("preset:".length) as keyof typeof THEMES]?.name ??
+    "Theme";
 
-  function startNew() {
-    const base = custom.find((t) => `custom:${t.name}` === chosenId)?.name ?? THEMES[presetOf(chosenId)]?.name ?? "Theme";
-    setDraft({ original: null, name: uniqueName(`${base} copy`, custom), palette: { ...current } });
-    setMessage(null);
+  function restore(before: { list: Theme[]; chosen: Chosen }) {
+    saveCustom(before.list);
+    choose(before.chosen);
+    setNote(null);
+  }
+
+  /** Add an imported theme to the saved list (renaming it if the name is taken) and switch to it. */
+  function add(theme: Theme, from: "bytematch" | "albedo") {
+    const name = uniqueName(theme.name, custom);
+    const saved = { ...theme, name };
+    const before = { list: custom, chosen };
+    saveCustom([...custom, saved]);
+    choose({ colours: `custom:${name}`, palette: saved.palette, style: saved.style });
+    const what = `“${theme.name}”${from === "albedo" ? " (an Albedo theme)" : ""}`;
+    setNote({
+      tone: "good",
+      text:
+        name === theme.name
+          ? `Imported ${what} and switched to it.`
+          : `Imported ${what} as “${name}”, since you already have one called “${theme.name}”. Switched to it.`,
+      undo: () => restore(before),
+      edit: saved,
+    });
   }
 
   function save() {
     if (!draft) return;
-    const name = draft.name.trim();
-    if (!name) return setMessage({ tone: "bad", text: "Give the theme a name." });
-    const theme: Theme = { name, palette: draft.palette };
+    const name = draft.name.trim().replace(/\s+/g, " ");
+    if (!name) return setNote({ tone: "bad", text: "Give the theme a name first." });
+    const theme: Theme = { name, palette: draft.palette, style: draft.style };
+    const clash = custom.some((t) => t.name === name && t.name !== draft.original);
     const list = custom.filter((t) => t.name !== draft.original && t.name !== name);
     const at = draft.original ? custom.findIndex((t) => t.name === draft.original) : -1;
     list.splice(at >= 0 ? Math.min(at, list.length) : list.length, 0, theme);
-    saveCustomThemes(list);
-    chooseTheme(`custom:${name}`, theme.palette);
+    const before = { list: custom, chosen };
+    saveCustom(list);
+    choose({ colours: `custom:${name}`, palette: theme.palette, style: theme.style });
     setDraft(null);
-    setMessage({ tone: "good", text: `Saved “${name}” and switched to it.` });
+    setNote({
+      tone: "good",
+      text: clash ? `Saved “${name}”, replacing your earlier theme of that name.` : `Saved “${name}” and switched to it.`,
+      undo: () => restore(before),
+    });
   }
 
-  function remove(name: string) {
-    if (!confirm(`Delete the theme “${name}”?`)) return;
-    saveCustomThemes(custom.filter((t) => t.name !== name));
-    if (chosenId === `custom:${name}`) chooseTheme("preset:slate", THEMES.slate.palette);
-    setMessage({ tone: "good", text: `Deleted “${name}”.` });
-  }
-
-  function importPasted() {
-    const r = parseTheme(paste);
-    if (!r.ok) return setMessage({ tone: "bad", text: r.error });
-    setDraft({ original: null, name: uniqueName(r.theme.name, custom), palette: r.theme.palette });
-    setPaste("");
-    setMessage({ tone: "good", text: `Imported “${r.theme.name}”. Check it below, then save it.` });
+  function remove(t: Theme) {
+    const before = { list: custom, chosen };
+    saveCustom(custom.filter((x) => x.name !== t.name));
+    if (chosen.colours === `custom:${t.name}`) choose({ colours: "preset:slate", palette: THEMES.slate.palette });
+    setNote({ tone: "good", text: `Deleted “${t.name}”.`, undo: () => restore(before) });
   }
 
   async function copy(theme: Theme) {
     try {
       await navigator.clipboard.writeText(serializeTheme(theme));
-      setMessage({ tone: "good", text: `Copied “${theme.name}”. Paste it anywhere to share it.` });
+      setNote({ tone: "good", text: `Copied “${theme.name}”. Send that line to anyone; they paste it under Import a theme.` });
     } catch {
-      setMessage({ tone: "bad", text: "The clipboard is not available here." });
+      setNote({ tone: "bad", text: "This browser didn't allow copying. Try again, or use a different browser." });
     }
   }
+
+  const edit = (t: Theme) => {
+    setNote(null);
+    setDraft({ original: t.name, name: t.name, palette: { ...t.palette }, style: { ...t.style } });
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="grid min-w-0 content-start gap-6">
-        {message ? (
-          <p role="status" className={`text-sm ${message.tone === "good" ? "text-good" : "text-bad"}`}>
-            {message.text}
-          </p>
-        ) : null}
-
-        <section className="panel p-5" aria-labelledby="built-in">
-          <h2 id="built-in" className="mb-4 text-xs font-medium tracking-wide text-ink-3 uppercase">
-            Built in
-          </h2>
+        <section className="panel p-5" aria-labelledby="colours">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 id="colours" className={sectionTitle}>
+              Colours
+            </h2>
+            <span className="text-xs text-ink-3">Changes colours only; your layout stays.</span>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             {PRESET_IDS.map((id) => (
-              <ThemeCard
+              <Card
                 key={id}
                 name={THEMES[id].name}
-                palette={THEMES[id].palette}
-                selected={!draft && chosenId === `preset:${id}`}
+                picture={<ThemeSwatch palette={THEMES[id].palette} className="aspect-[16/10] w-full" />}
+                selected={!draft && chosen.colours === `preset:${id}`}
                 note={id === "slate" ? "Default" : undefined}
                 onClick={() => {
                   setDraft(null);
-                  chooseTheme(`preset:${id}`, THEMES[id].palette);
+                  choose({ colours: `preset:${id}`, palette: THEMES[id].palette });
+                }}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="panel p-5" aria-labelledby="layouts">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 id="layouts" className={sectionTitle}>
+              Layout
+            </h2>
+            <span className="text-xs text-ink-3">Changes the structure only; your colours stay.</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {STYLE_IDS.map((id) => (
+              <Card
+                key={id}
+                name={STYLES[id].name}
+                description={STYLES[id].description}
+                picture={<StyleSwatch style={STYLES[id].style} className="aspect-[16/10] w-full" />}
+                selected={!draft && styleId(chosen.style) === id}
+                note={id === "classic" ? "Default" : undefined}
+                onClick={() => {
+                  setDraft(null);
+                  choose({ style: STYLES[id].style });
                 }}
               />
             ))}
@@ -119,75 +181,91 @@ export function ThemeStudio() {
         </section>
 
         <section className="panel p-5" aria-labelledby="yours">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 id="yours" className="text-xs font-medium tracking-wide text-ink-3 uppercase">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="yours" className={sectionTitle}>
               Your themes
             </h2>
-            <button type="button" className="btn btn-ghost h-8 px-3" onClick={startNew} disabled={!!draft}>
-              <Plus size={14} />
-              New from current
-            </button>
-          </div>
-          {custom.length ? (
-            <ul className="grid gap-2">
-              {custom.map((t) => (
-                <li key={t.name} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-2 p-2.5">
-                  <ThemeSwatch palette={t.palette} className="h-9 w-14" />
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    {t.name}
-                    {!draft && chosenId === `custom:${t.name}` ? <span className="ml-2 text-xs text-ink-3">In use</span> : null}
-                  </span>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      className="btn btn-ghost h-8 px-3"
-                      onClick={() => {
-                        setDraft(null);
-                        chooseTheme(`custom:${t.name}`, t.palette);
-                      }}
-                    >
-                      Use
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost h-8 px-3"
-                      onClick={() => setDraft({ original: t.name, name: t.name, palette: { ...t.palette } })}
-                    >
-                      Edit
-                    </button>
-                    <button type="button" className="btn btn-ghost h-8 px-3" onClick={() => copy(t)}>
-                      Copy
-                    </button>
-                    <button type="button" className="btn btn-ghost h-8 px-3 hover:text-bad" onClick={() => remove(t.name)}>
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-ink-3">None yet. Start from the current theme, or paste one below.</p>
-          )}
-
-          <div className="mt-5 border-t border-line pt-4">
-            <label htmlFor="paste" className="mb-1.5 block text-sm text-ink-2">
-              Paste a theme
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id="paste"
-                className="field font-mono text-xs"
-                placeholder="bytematch-theme:1:{…} or albedo-theme:1:{…}"
-                value={paste}
-                onChange={(e) => setPaste(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && paste.trim() && importPasted()}
-                spellCheck={false}
-              />
-              <button type="button" className="btn btn-ghost shrink-0" onClick={importPasted} disabled={!paste.trim() || !!draft}>
-                Import
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost h-8 px-3"
+                onClick={() => copy({ name: currentName, palette: chosen.palette, style: chosen.style })}
+                title="Copy the colours and layout you're using now, to share them"
+              >
+                Copy current
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost h-8 px-3"
+                disabled={editing}
+                onClick={() => {
+                  setNote(null);
+                  setDraft({
+                    original: null,
+                    name: uniqueName(`My ${currentName}`, custom),
+                    palette: { ...chosen.palette },
+                    style: { ...chosen.style },
+                  });
+                }}
+              >
+                <Plus size={14} />
+                New theme
               </button>
             </div>
           </div>
+
+          <Importer disabled={editing} onImport={add} />
+
+          {note ? <NoteLine note={note} onEdit={edit} /> : null}
+
+          {custom.length ? (
+            <ul className="mt-4 grid gap-2">
+              {custom.map((t) => {
+                const inUse = !draft && chosen.colours === `custom:${t.name}`;
+                const sid = styleId(t.style);
+                return (
+                  <li key={t.name} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-2 p-2.5">
+                    <ThemeSwatch palette={t.palette} className="h-9 w-14" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{t.name}</span>
+                      <span className="block text-xs text-ink-3">
+                        {sid
+                          ? `${STYLES[sid].name} layout`
+                          : `${t.style.layout === "directory" ? "Directory" : "Classic"} layout, adjusted`}
+                        {inUse ? " · in use" : ""}
+                      </span>
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        className="btn btn-ghost h-8 px-3"
+                        disabled={inUse}
+                        onClick={() => {
+                          setDraft(null);
+                          choose({ colours: `custom:${t.name}`, palette: t.palette, style: t.style });
+                        }}
+                      >
+                        {inUse ? "In use" : "Use"}
+                      </button>
+                      <button type="button" className="btn btn-ghost h-8 px-3" onClick={() => edit(t)}>
+                        Edit
+                      </button>
+                      <button type="button" className="btn btn-ghost h-8 px-3" onClick={() => copy(t)}>
+                        Copy
+                      </button>
+                      <button type="button" className="btn btn-ghost h-8 px-3 hover:text-bad" onClick={() => remove(t)}>
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-ink-3">
+              None saved yet. Import one above, or press New theme to start from what you&apos;re using now.
+            </p>
+          )}
         </section>
 
         {draft ? (
@@ -195,24 +273,17 @@ export function ThemeStudio() {
             draft={draft}
             onChange={setDraft}
             onSave={save}
-            onCancel={() => {
-              setDraft(null);
-              setMessage(null);
-            }}
-            onCopy={() => copy({ name: draft.name.trim() || "Untitled", palette: draft.palette })}
+            onCancel={() => setDraft(null)}
+            onCopy={() => copy({ name: draft.name.trim() || "Untitled", palette: draft.palette, style: draft.style })}
           />
         ) : null}
       </div>
 
       <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-        <Preview editing={!!draft} />
+        <Preview editing={editing} />
       </aside>
     </div>
   );
-}
-
-function presetOf(id: string) {
-  return id.slice("preset:".length) as keyof typeof THEMES;
 }
 
 function uniqueName(name: string, list: Theme[]) {
@@ -221,15 +292,107 @@ function uniqueName(name: string, list: Theme[]) {
   for (let i = 2; ; i++) if (!taken.has(`${name} ${i}`)) return `${name} ${i}`;
 }
 
-function ThemeCard({
+/**
+ * Paste a shared theme. It is read as you paste: a valid one shows what it is and a button to add
+ * it; anything else says what's wrong, right under the field.
+ */
+function Importer({ disabled, onImport }: { disabled: boolean; onImport: (t: Theme, from: "bytematch" | "albedo") => void }) {
+  const [text, setText] = useState("");
+  const parsed = text.trim() ? parseTheme(text) : null;
+  const add = () => {
+    if (!parsed?.ok) return;
+    onImport(parsed.theme, parsed.from);
+    setText("");
+  };
+  const sid = parsed?.ok ? styleId(parsed.theme.style) : null;
+  return (
+    <div className="rounded-lg border border-dashed border-line-strong p-4">
+      <label htmlFor="import" className="block text-sm font-medium">
+        Import a theme
+      </label>
+      <p id="import-hint" className="mt-0.5 mb-2.5 text-xs text-ink-3">
+        Paste the line someone shared with you. It starts with <code className="font-mono">bytematch-theme:</code>; themes copied from
+        Albedo (<code className="font-mono">albedo-theme:</code>) work too.
+      </p>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          id="import"
+          className={`field font-mono text-xs ${parsed && !parsed.ok ? "border-bad" : ""}`}
+          placeholder="Paste a theme here"
+          value={text}
+          disabled={disabled}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          spellCheck={false}
+          autoComplete="off"
+          aria-describedby="import-hint import-result"
+          aria-invalid={parsed ? !parsed.ok : undefined}
+        />
+        {text ? (
+          <button type="button" className="btn btn-ghost shrink-0" onClick={() => setText("")}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <div id="import-result" aria-live="polite">
+        {disabled ? <p className="mt-2 text-xs text-ink-3">Finish or cancel the theme you&apos;re editing to import another.</p> : null}
+        {parsed && !parsed.ok ? <p className="mt-2 text-sm text-bad">{parsed.error}</p> : null}
+        {parsed?.ok ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-surface-2 p-2.5">
+            <ThemeSwatch palette={parsed.theme.palette} className="h-9 w-14" />
+            <span className="min-w-0 flex-1 text-sm">
+              <span className="block truncate font-medium">{parsed.theme.name}</span>
+              <span className="block text-xs text-ink-3">
+                {parsed.from === "albedo"
+                  ? "An Albedo theme: its colours, with ByteMatch's progress colours and the Classic layout."
+                  : sid
+                    ? `${STYLES[sid].name} layout`
+                    : `${parsed.theme.style.layout === "directory" ? "Directory" : "Classic"} layout, adjusted`}
+              </span>
+            </span>
+            <button type="button" className="btn btn-primary h-9 px-4" onClick={add}>
+              Add and use
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NoteLine({ note, onEdit }: { note: Note; onEdit: (t: Theme) => void }) {
+  return (
+    <p
+      role="status"
+      className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm ${note.tone === "good" ? "text-good" : "text-bad"}`}
+    >
+      {note.tone === "good" ? <Check size={14} /> : null}
+      <span>{note.text}</span>
+      {note.edit ? (
+        <button type="button" className="text-accent underline" onClick={() => onEdit(note.edit!)}>
+          Edit it
+        </button>
+      ) : null}
+      {note.undo ? (
+        <button type="button" className="text-accent underline" onClick={note.undo}>
+          Undo
+        </button>
+      ) : null}
+    </p>
+  );
+}
+
+function Card({
   name,
-  palette,
+  description,
+  picture,
   selected,
   note,
   onClick,
 }: {
   name: string;
-  palette: Palette;
+  description?: string;
+  picture: React.ReactNode;
   selected: boolean;
   note?: string;
   onClick: () => void;
@@ -239,13 +402,14 @@ function ThemeCard({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className="group rounded-xl border border-line bg-surface-2 p-2 text-left transition-colors hover:border-line-strong aria-pressed:border-accent"
+      className="group flex flex-col rounded-xl border border-line bg-surface-2 p-2 text-left transition-colors hover:border-line-strong aria-pressed:border-accent"
     >
-      <ThemeSwatch palette={palette} className="aspect-[16/10] w-full" />
+      {picture}
       <span className="mt-2 flex items-center gap-1.5 px-0.5 text-sm">
         <span className="min-w-0 flex-1 truncate">{name}</span>
         {selected ? <Check size={14} className="shrink-0 text-accent" /> : note ? <span className="text-xs text-ink-3">{note}</span> : null}
       </span>
+      {description ? <span className="mt-0.5 px-0.5 text-xs leading-snug text-ink-3">{description}</span> : null}
     </button>
   );
 }
@@ -265,18 +429,45 @@ function Editor({
 }) {
   const ref = useRef<HTMLElement>(null);
   // Opening the editor brings it into view; it sits below the theme lists.
-  useEffect(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), [draft.original]);
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [draft.original]);
   const set = (slot: Slot, value: string) => onChange({ ...draft, palette: { ...draft.palette, [slot]: value.toLowerCase() } });
   return (
     <section ref={ref} className="panel scroll-mt-20 p-5" aria-labelledby="editor">
-      <h2 id="editor" className="mb-1 text-xs font-medium tracking-wide text-ink-3 uppercase">
+      <h2 id="editor" className={`mb-1 ${sectionTitle}`}>
         {draft.original ? `Editing “${draft.original}”` : "New theme"}
       </h2>
-      <p className="mb-4 text-sm text-ink-3">The whole page previews your changes until you save or cancel.</p>
-      <label className="mb-4 block max-w-sm">
+      <p className="mb-4 text-sm text-ink-3">
+        The whole page previews your changes until you save or cancel. Project pages show a new layout once it&apos;s saved.
+      </p>
+      <label className="mb-5 block max-w-sm">
         <span className="mb-1.5 block text-sm text-ink-2">Name</span>
         <input className="field" value={draft.name} maxLength={40} onChange={(e) => onChange({ ...draft, name: e.target.value })} />
       </label>
+
+      <h3 className="mb-3 text-sm font-medium">Layout and style</h3>
+      <div className="mb-6 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        {STYLE_KEYS.map((k) => (
+          <div key={k}>
+            <div className="mb-1.5 text-sm text-ink-2">{STYLE_OPTIONS[k].label}</div>
+            <div className="segmented" role="group" aria-label={STYLE_OPTIONS[k].label}>
+              {STYLE_OPTIONS[k].options.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={draft.style[k] === o.value}
+                  onClick={() => onChange({ ...draft, style: { ...draft.style, [k]: o.value } })}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mb-3 text-sm font-medium">Colours</h3>
       <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         {SLOTS.map(({ slot, label, role }) => (
           <SlotField key={slot} slot={slot} label={label} role={role} palette={draft.palette} onChange={(v) => set(slot, v)} />
@@ -349,7 +540,7 @@ function SlotField({
           onChange={(e) => {
             const t = e.target.value.trim();
             setText(t);
-            if (isHex(t)) onChange(t);
+            if (isHex(t)) onChange(t.toLowerCase());
           }}
         />
         <p className="mt-1 text-xs text-ink-3">{role}</p>
@@ -364,7 +555,7 @@ function Preview({ editing }: { editing: boolean }) {
   return (
     <div className="panel grid gap-4 p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-xs font-medium tracking-wide text-ink-3 uppercase">Preview</h2>
+        <h2 className={sectionTitle}>Preview</h2>
         {editing ? <span className="text-xs text-accent">Editing</span> : null}
       </div>
       <div>

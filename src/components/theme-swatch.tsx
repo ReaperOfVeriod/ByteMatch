@@ -1,4 +1,4 @@
-import type { Palette } from "@/lib/theme";
+import type { Palette, Style } from "@/lib/theme";
 
 /**
  * A small picture of a palette: its background, a surface with a line, text, the accent and the
@@ -26,6 +26,46 @@ export function ThemeSwatch({ palette, className = "" }: { palette: Palette; cla
           <span className="absolute inset-y-0 left-[55%] w-[20%]" style={{ background: palette.partial }} />
         </span>
       </span>
+    </span>
+  );
+}
+
+/**
+ * A small wireframe of a style in the live theme's colours: Classic shows rounded panels beside a
+ * sidebar, Directory a header bar over full-width rows. Corners and depth follow the style.
+ */
+export function StyleSwatch({ style, className = "" }: { style: Style; className?: string }) {
+  const r = style.corners === "round" ? 3 : style.corners === "soft" ? 1.5 : 0.5;
+  const shadow = style.depth === "raised" ? "0 1px 2px rgb(0 0 0 / 0.35)" : "none";
+  const box = (extra: React.CSSProperties) => (
+    <span
+      className="absolute"
+      style={{ background: "var(--surface)", boxShadow: `inset 0 0 0 1px var(--line), ${shadow}`, borderRadius: r, ...extra }}
+    />
+  );
+  return (
+    <span
+      aria-hidden
+      className={`relative inline-block shrink-0 overflow-hidden rounded-md ${className}`}
+      style={{ background: "var(--bg)", boxShadow: "inset 0 0 0 1px var(--line)" }}
+    >
+      {style.layout === "classic" ? (
+        <>
+          {box({ left: "10%", top: "16%", width: "52%", height: "68%" })}
+          {box({ left: "68%", top: "16%", width: "22%", height: "68%" })}
+          <span className="absolute h-[10%] w-[30%] rounded-full" style={{ left: "16%", top: "30%", background: "var(--accent)" }} />
+        </>
+      ) : (
+        <>
+          <span
+            className="absolute inset-x-0 top-0 h-[20%]"
+            style={{ background: "var(--surface)", boxShadow: "inset 0 -1px 0 var(--line)" }}
+          />
+          <span className="absolute h-[3px] w-[16%]" style={{ left: "10%", top: "17%", background: "var(--accent)" }} />
+          {box({ left: "10%", top: "32%", width: "80%", height: "24%" })}
+          {box({ left: "10%", top: "60%", width: "80%", height: "24%" })}
+        </>
+      )}
     </span>
   );
 }

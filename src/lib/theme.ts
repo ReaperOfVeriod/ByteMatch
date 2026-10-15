@@ -25,9 +25,25 @@ export interface Palette {
 
 export type Slot = keyof Palette;
 
+/**
+ * The structural half of a theme: how the site is laid out and drawn, as opposed to its colours.
+ * Like the palette it is a fixed set of slots; globals.css keys everything off them.
+ */
+export interface Style {
+  /** Classic: sticky header, panels and a sidebar. Directory: a flat header, wide project cards
+   *  and a report page with its details under the summary (after the redesign in PR #1). */
+  layout: "classic" | "directory";
+  corners: "round" | "soft" | "square";
+  /** Raised: panels cast soft shadows and the page has a glow. Flat: borders only. */
+  depth: "raised" | "flat";
+  density: "comfortable" | "compact" | "roomy";
+  font: "geist" | "system" | "mono";
+}
+
 export interface Theme {
   name: string;
   palette: Palette;
+  style: Style;
 }
 
 /** The slots in the order editors offer them, with the CSS property each one writes. */
@@ -65,11 +81,13 @@ const SLATE: Palette = {
 };
 
 /** A near-black theme around one accent: neutrals and accent from Albedo, data slots from Slate. */
-function accented(name: string, accent: string, bg: string, surface: string, line: string, text: string, dim: string): Theme {
+function accented(name: string, accent: string, bg: string, surface: string, line: string, text: string, dim: string): ColourTheme {
   return { name, palette: { ...SLATE, accent, bg, surface, line, text, dim } };
 }
 
-/** Built-in themes, in the order the picker shows them. */
+type ColourTheme = Omit<Theme, "style">;
+
+/** Built-in colour themes, in the order the picker shows them. */
 export const THEMES = {
   slate: { name: "Slate", palette: SLATE },
   light: {
@@ -115,7 +133,7 @@ export const THEMES = {
   red: accented("Red", "#ff5436", "#0d0705", "#16100d", "#2d201a", "#f0e2dc", "#9e867c"),
   pink: accented("Pink", "#ff7fa8", "#080d14", "#0e1620", "#1d2836", "#ffc0cb", "#a8919c"),
   mono: accented("Mono", "#e8e8e8", "#0b0b0b", "#151515", "#2c2c2c", "#efefef", "#8f8f8f"),
-} satisfies Record<string, Theme>;
+} satisfies Record<string, ColourTheme>;
 
 export type PresetId = keyof typeof THEMES;
 export const DEFAULT_PRESET: PresetId = "slate";
@@ -147,144 +165,223 @@ export function isDark(bg: string): boolean {
 /** Slots that carry text, which need 4.5:1 against the surface they sit on. */
 export const TEXT_SLOTS: Slot[] = ["text", "dim", "accent", "good", "bad", "warn"];
 
+/** Each style slot's options, in the order editors offer them, with a label for each. */
+export const STYLE_OPTIONS: { [K in keyof Style]: { label: string; options: { value: Style[K]; label: string }[] } } = {
+  layout: {
+    label: "Layout",
+    options: [
+      { value: "classic", label: "Classic" },
+      { value: "directory", label: "Directory" },
+    ],
+  },
+  corners: {
+    label: "Corners",
+    options: [
+      { value: "round", label: "Round" },
+      { value: "soft", label: "Soft" },
+      { value: "square", label: "Square" },
+    ],
+  },
+  depth: {
+    label: "Depth",
+    options: [
+      { value: "raised", label: "Raised" },
+      { value: "flat", label: "Flat" },
+    ],
+  },
+  density: {
+    label: "Spacing",
+    options: [
+      { value: "compact", label: "Compact" },
+      { value: "comfortable", label: "Comfortable" },
+      { value: "roomy", label: "Roomy" },
+    ],
+  },
+  font: {
+    label: "Font",
+    options: [
+      { value: "geist", label: "Geist" },
+      { value: "system", label: "System" },
+      { value: "mono", label: "Mono" },
+    ],
+  },
+};
+
+export const STYLE_KEYS = Object.keys(STYLE_OPTIONS) as (keyof Style)[];
+
+/** Built-in styles. Classic is today's site; Directory is the redesign proposed in PR #1. */
+export const STYLES = {
+  classic: {
+    name: "Classic",
+    description: "Rounded panels, a sticky header and a details sidebar.",
+    style: { layout: "classic", corners: "round", depth: "raised", density: "comfortable", font: "geist" },
+  },
+  directory: {
+    name: "Directory",
+    description: "Square and flat: wide project cards, big figures, details under the report.",
+    style: { layout: "directory", corners: "square", depth: "flat", density: "comfortable", font: "geist" },
+  },
+  compact: {
+    name: "Compact",
+    description: "The classic layout, tighter and flatter, in your system's font.",
+    style: { layout: "classic", corners: "soft", depth: "flat", density: "compact", font: "system" },
+  },
+  terminal: {
+    name: "Terminal",
+    description: "The directory layout, dense and monospaced.",
+    style: { layout: "directory", corners: "square", depth: "flat", density: "compact", font: "mono" },
+  },
+} satisfies Record<string, { name: string; description: string; style: Style }>;
+
+export type StyleId = keyof typeof STYLES;
+export const DEFAULT_STYLE: StyleId = "classic";
+export const STYLE_IDS = Object.keys(STYLES) as StyleId[];
+
+/** The built-in style a style equals, if any. */
+export function styleId(style: Style): StyleId | null {
+  return STYLE_IDS.find((id) => STYLE_KEYS.every((k) => STYLES[id].style[k] === style[k])) ?? null;
+}
+
+/** A style with every slot checked; anything unknown takes Classic's value. */
+export function cleanStyle(raw: unknown): Style {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const base = STYLES.classic.style as Style;
+  return Object.fromEntries(
+    STYLE_KEYS.map((k) => [k, STYLE_OPTIONS[k].options.some((o) => o.value === r[k]) ? r[k] : base[k]]),
+  ) as unknown as Style;
+}
+
 // ---- Copy and paste ----
 
-/** Versioned prefix of the text format themes are shared in. */
-export const WIRE_PREFIX = "bytematch-theme:1:";
+/** Versioned prefix of the text format themes are shared in. Version 1 had no style. */
+export const WIRE_PREFIX = "bytematch-theme:2:";
+const WIRE_V1 = "bytematch-theme:1:";
 const ALBEDO_PREFIX = "albedo-theme:1:";
 
 export function serializeTheme(theme: Theme): string {
   const palette = Object.fromEntries(SLOTS.map(({ slot }) => [slot, theme.palette[slot].toLowerCase()]));
-  return `${WIRE_PREFIX}${JSON.stringify({ name: theme.name, palette })}`;
+  return `${WIRE_PREFIX}${JSON.stringify({ name: theme.name, palette, style: theme.style })}`;
 }
 
-export type ParseResult = { ok: true; theme: Theme } | { ok: false; error: string };
+export type ParseResult = { ok: true; theme: Theme; from: "bytematch" | "albedo" } | { ok: false; error: string };
+
+const ALBEDO_SLOTS: Partial<Record<Slot, string>> = {
+  bg: "bg",
+  surface: "panel",
+  line: "edge",
+  text: "fg",
+  dim: "dim",
+  accent: "accent",
+  good: "success",
+  bad: "danger",
+  warn: "warn",
+};
 
 /**
- * Read a shared theme. Accepts ByteMatch's format and Albedo's (`albedo-theme:1:`), whose twelve
- * slots map onto the neutrals, accent and states; ByteMatch's data slots then come from Slate.
+ * Read a shared theme. Accepts ByteMatch's format (both versions) and Albedo's
+ * (`albedo-theme:1:`), whose twelve slots map onto the neutrals, accent and states; ByteMatch's
+ * data slots then come from Slate. A theme without a style gets Classic.
  */
 export function parseTheme(text: string): ParseResult {
   const t = text.trim();
-  const albedo = t.startsWith(ALBEDO_PREFIX);
-  if (!albedo && !t.startsWith(WIRE_PREFIX)) {
-    return { ok: false, error: `Not a theme: it should start with ${WIRE_PREFIX}` };
+  if (!t) return { ok: false, error: "Paste a theme first." };
+  const prefix = [WIRE_PREFIX, WIRE_V1, ALBEDO_PREFIX].find((p) => t.startsWith(p));
+  if (!prefix) {
+    return {
+      ok: false,
+      error: "That isn't a theme. A theme is one line starting with bytematch-theme: (or albedo-theme: from Albedo).",
+    };
   }
-  let data: { name?: unknown; palette?: unknown };
+  let data: { name?: unknown; palette?: unknown; style?: unknown };
   try {
-    data = JSON.parse(t.slice(albedo ? ALBEDO_PREFIX.length : WIRE_PREFIX.length));
+    data = JSON.parse(t.slice(prefix.length));
   } catch {
-    return { ok: false, error: "The theme's JSON could not be read." };
+    return { ok: false, error: "The theme looks cut off. Copy the whole line and paste it again." };
   }
-  const name = typeof data?.name === "string" ? data.name.trim().slice(0, 40) : "";
+  const name = typeof data?.name === "string" ? data.name.trim().replace(/\s+/g, " ").slice(0, 40) : "";
   if (!name) return { ok: false, error: "The theme has no name." };
-  if (!data.palette || typeof data.palette !== "object") return { ok: false, error: "The theme has no palette." };
+  if (!data.palette || typeof data.palette !== "object") return { ok: false, error: "The theme has no colours." };
   const p = data.palette as Record<string, unknown>;
 
-  const source: Record<Slot, string> = albedo
-    ? ({
-        bg: "bg",
-        surface: "panel",
-        line: "edge",
-        text: "fg",
-        dim: "dim",
-        accent: "accent",
-        good: "success",
-        bad: "danger",
-        warn: "warn",
-      } as Record<Slot, string>)
-    : (Object.fromEntries(SLOTS.map(({ slot }) => [slot, slot])) as Record<Slot, string>);
+  const albedo = prefix === ALBEDO_PREFIX;
+  const source = albedo ? ALBEDO_SLOTS : Object.fromEntries(SLOTS.map(({ slot }) => [slot, slot]));
   const palette = { ...SLATE };
   for (const [slot, key] of Object.entries(source) as [Slot, string][]) {
-    if (!isHex(p[key])) return { ok: false, error: `Slot "${key}" is not a colour like #1a2b3c.` };
+    if (!isHex(p[key])) return { ok: false, error: `The colour "${key}" should look like #1a2b3c.` };
     palette[slot] = (p[key] as string).toLowerCase();
   }
-  return { ok: true, theme: { name, palette } };
+  return { ok: true, theme: { name, palette, style: cleanStyle(data.style) }, from: albedo ? "albedo" : "bytematch" };
 }
 
-// ---- Applying and remembering ----
+// ---- The chosen theme ----
 
-/** What the browser remembers: which theme is chosen, and its palette so it can apply before paint. */
+/**
+ * What a visitor has chosen. It lives in a cookie, so the server renders the right layout and
+ * colours from the first byte; saved custom themes are larger and stay in localStorage.
+ */
 export interface Chosen {
-  /** "preset:<id>" or "custom:<name>". */
-  id: string;
+  /** Which colours: "preset:<id>" or "custom:<name>". */
+  colours: string;
   palette: Palette;
+  style: Style;
 }
 
-export const CHOSEN_KEY = "bytematch-theme";
+export const CHOSEN_COOKIE = "bytematch-theme";
 export const CUSTOM_KEY = "bytematch-themes";
-/** Fired on window when the chosen theme or the custom list changes in this tab. */
-export const THEME_EVENT = "bytematch-theme";
+/** Fired on window when the custom list changes in this tab. */
+export const THEME_EVENT = "bytematch-themes";
 
-/** Write a palette's slots onto <html>; null clears them so the stylesheet's Slate applies. */
-export function applyTheme(palette: Palette | null) {
-  if (typeof document === "undefined") return;
-  const style = document.documentElement.style;
-  for (const { slot, css } of SLOTS) {
-    if (palette && isHex(palette[slot])) style.setProperty(css, palette[slot]);
-    else style.removeProperty(css);
-  }
-  style.colorScheme = palette ? (isDark(palette.bg) ? "dark" : "light") : "";
+export const DEFAULT_CHOSEN: Chosen = {
+  colours: `preset:${DEFAULT_PRESET}`,
+  palette: THEMES[DEFAULT_PRESET].palette,
+  style: STYLES[DEFAULT_STYLE].style as Style,
+};
+
+/** The cookie's value: version, colours id, the thirteen hexes, the five style values. */
+export function encodeChosen(c: Chosen): string {
+  const hexes = SLOTS.map(({ slot }) => c.palette[slot].slice(1).toLowerCase()).join(",");
+  const style = STYLE_KEYS.map((k) => c.style[k]).join(",");
+  return encodeURIComponent(["2", c.colours, hexes, style].join("|"));
 }
 
-function readRaw(key: string): string | null {
+/** Read the cookie back; anything malformed means the default. Only hexes and known words pass. */
+export function decodeChosen(raw: string | undefined | null): Chosen {
+  if (!raw) return DEFAULT_CHOSEN;
+  let v: string;
   try {
-    return localStorage.getItem(key);
+    v = decodeURIComponent(raw);
   } catch {
-    return null;
+    return DEFAULT_CHOSEN;
   }
+  const parts = v.split("|");
+  if (parts.length < 4 || parts[0] !== "2") return DEFAULT_CHOSEN;
+  const style = parts.pop()!;
+  const hexes = parts.pop()!.split(",");
+  const colours = parts.slice(1).join("|").slice(0, 60);
+  if (hexes.length !== SLOTS.length || !hexes.every((h) => /^[0-9a-f]{6}$/i.test(h))) return DEFAULT_CHOSEN;
+  const palette = Object.fromEntries(SLOTS.map(({ slot }, i) => [slot, `#${hexes[i].toLowerCase()}`])) as unknown as Palette;
+  const values = style.split(",");
+  return { colours, palette, style: cleanStyle(Object.fromEntries(STYLE_KEYS.map((k, i) => [k, values[i]]))) };
 }
 
-function write(key: string, value: unknown) {
-  try {
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage blocked: the theme still applies for this page view.
-  }
-}
+const isDefaultPalette = (p: Palette) => SLOTS.every(({ slot }) => p[slot] === THEMES[DEFAULT_PRESET].palette[slot]);
 
-function json(raw: string | null): unknown {
-  try {
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The remembered choice, from storage's raw text (pass it to parse a snapshot you already hold). */
-export function chosenTheme(raw = readRaw(CHOSEN_KEY)): Chosen | null {
-  const c = json(raw) as Chosen | null;
-  return c && typeof c.id === "string" && c.palette && typeof c.palette === "object" ? c : null;
-}
-
-/** Saved custom themes, each re-checked by the same parser as a pasted theme. */
-export function customThemes(raw = readRaw(CUSTOM_KEY)): Theme[] {
-  const list = json(raw);
-  if (!Array.isArray(list)) return [];
-  return list.flatMap((t) => {
-    const r = parseTheme(`${WIRE_PREFIX}${JSON.stringify(t)}`);
-    return r.ok ? [r.theme] : [];
-  });
-}
-
-/** Choose a theme: apply it now and remember it. The default preset is remembered as nothing. */
-export function chooseTheme(id: string, palette: Palette) {
-  const isDefault = id === `preset:${DEFAULT_PRESET}`;
-  applyTheme(isDefault ? null : palette);
-  write(CHOSEN_KEY, isDefault ? null : ({ id, palette } satisfies Chosen));
-  window.dispatchEvent(new Event(THEME_EVENT));
-}
-
-export function saveCustomThemes(list: Theme[]) {
-  write(CUSTOM_KEY, list);
-  window.dispatchEvent(new Event(THEME_EVENT));
+/** The CSS custom properties a palette sets on <html>; none for Slate, which the stylesheet has. */
+export function paletteVars(palette: Palette): Record<string, string> {
+  if (isDefaultPalette(palette)) return {};
+  return {
+    ...Object.fromEntries(SLOTS.map(({ slot, css }) => [css, palette[slot]])),
+    colorScheme: isDark(palette.bg) ? "dark" : "light",
+  };
 }
 
 /**
- * Runs in <head> before first paint: applies the remembered palette, so a chosen theme never
- * flashes Slate first. Kept dependency-free and small; it trusts only #rrggbb values.
+ * The data-* attributes a theme sets on <html>: one per style slot, and data-tinted when the
+ * colours aren't Slate's (the header mark then takes the accent instead of the brand colours).
  */
-export const BOOT_SCRIPT = `(function(){try{var c=JSON.parse(localStorage.getItem(${JSON.stringify(CHOSEN_KEY)})||"null");if(!c||!c.palette)return;var m=${JSON.stringify(
-  Object.fromEntries(SLOTS.map(({ slot, css }) => [slot, css])),
-)},s=document.documentElement.style,p=c.palette,h=/^#[0-9a-fA-F]{6}$/;for(var k in m)if(h.test(p[k]))s.setProperty(m[k],p[k]);if(h.test(p.bg)){var n=parseInt(p.bg.slice(1),16),l=function(v){v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4)};s.colorScheme=0.2126*l(n>>16&255)+0.7152*l(n>>8&255)+0.0722*l(n&255)<0.18?"dark":"light"}}catch(e){}})()`;
+export function themeAttrs(palette: Palette, style: Style): Record<string, string | undefined> {
+  return {
+    ...Object.fromEntries(STYLE_KEYS.map((k) => [`data-${k}`, style[k]])),
+    "data-tinted": isDefaultPalette(palette) ? undefined : "",
+  };
+}
