@@ -1,23 +1,62 @@
+import type { NextRequest } from "next/server";
 import { projectIndex } from "@/db/store";
 import { projectUrl } from "@/lib/project-data";
+import { filterAndSort, listQuery, paginate, parseListParams } from "@/lib/project-query";
+import { config } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-/** Every project with its default version's latest measures. */
-export async function GET() {
-  const rows = await projectIndex();
+const DEFAULT_PER_PAGE = 100;
+const MAX_PER_PAGE = 500;
+
+/**
+ * Projects with their default version's latest measures. Accepts the index page's q, platform and
+ * sort, plus page and per_page (default 100, at most 500). Paging is reported in X-Total-Count,
+ * X-Total-Pages and a Link header with prev/next/first/last.
+ */
+export async function GET(request: NextRequest) {
+  const params = parseListParams(request.nextUrl.searchParams);
+  const asked = Number.parseInt(request.nextUrl.searchParams.get("per_page") ?? "", 10);
+  const perPage = Number.isFinite(asked) && asked > 0 ? Math.min(asked, MAX_PER_PAGE) : DEFAULT_PER_PAGE;
+  const rows = (await projectIndex()).map((p) => ({
+    ...p,
+    codePercent: p.measures ? Number(p.measures.matched_code_percent) : null,
+    updated: p.commit_timestamp ? new Date(p.commit_timestamp).toISOString() : null,
+  }));
+  const page = paginate(filterAndSort(rows, params), params.page, perPage);
+
+  const base = `${config().PUBLIC_URL}/api/v1/projects`;
+  const link = (n: number) => {
+    const q = listQuery({ ...params, page: n });
+    const sep = q ? "&" : "?";
+    return `${base}${q}${perPage === DEFAULT_PER_PAGE ? "" : `${sep}per_page=${perPage}`}`;
+  };
+  const links = [`<${link(1)}>; rel="first"`, `<${link(page.pages)}>; rel="last"`];
+  if (page.page > 1) links.push(`<${link(page.page - 1)}>; rel="prev"`);
+  if (page.page < page.pages) links.push(`<${link(page.page + 1)}>; rel="next"`);
+
   return Response.json(
-    rows.map((p) => ({
+    page.items.map((p) => ({
       owner: p.owner,
       repo: p.repo,
       name: p.name,
       short_name: p.short_name,
       platform: p.platform,
       url: projectUrl(p),
+      image_url: p.image_url,
       version: p.version,
-      timestamp: p.commit_timestamp ? new Date(p.commit_timestamp).toISOString() : null,
+      timestamp: p.updated,
       measures: p.measures,
     })),
-    { headers: { "cache-control": "public, max-age=60", "access-control-allow-origin": "*" } },
+    {
+      headers: {
+        "cache-control": "public, max-age=60",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "Link, X-Total-Count, X-Total-Pages",
+        "x-total-count": String(page.total),
+        "x-total-pages": String(page.pages),
+        link: links.join(", "),
+      },
+    },
   );
 }
