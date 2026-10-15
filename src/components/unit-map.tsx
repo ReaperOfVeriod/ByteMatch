@@ -6,6 +6,7 @@ import { grouped, ordered, squarify, type Rect } from "./treemap";
 import { parseUnitFilter } from "./unit-filter";
 import { ChevronRight, Close, Search } from "./ui/icons";
 import { Select } from "./ui/select";
+import { SourcePanel } from "./source-panel";
 
 export interface MapUnit {
   name: string;
@@ -110,6 +111,8 @@ export function UnitMap({
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<Tile | null>(null);
   const [pinned, setPinned] = useState<Tile | null>(null);
+  /** Whose source is shown under the map: the open unit's (fn null) or one of its functions. */
+  const [source, setSource] = useState<{ unit: string; fn: string | null } | null>(null);
   const [functions, setFunctions] = useState<Record<string, FunctionRow[] | "error">>({});
   const grid = useRef<HTMLDivElement>(null);
   const box = useBox(grid);
@@ -129,6 +132,7 @@ export function UnitMap({
       else next.delete("unit");
       const qs = next.toString();
       setPinned(null);
+      setSource(null);
       setFocus(null);
       setQuery("");
       start(() => router.push(`${path}${qs ? `?${qs}` : ""}`, { scroll: false }));
@@ -253,6 +257,14 @@ export function UnitMap({
               </button>
               <ChevronRight size={12} className="text-ink-3" />
               <span className="max-w-[18rem] truncate font-mono text-[13px] text-ink">{openUnit}</span>
+              <button
+                type="button"
+                onClick={() => setSource({ unit: openUnit, fn: null })}
+                aria-pressed={source?.fn === null}
+                className="ml-1 rounded-md border border-line px-2 py-0.5 text-xs text-ink-2 hover:border-line-strong hover:text-ink"
+              >
+                View source
+              </button>
             </>
           ) : (
             <span className="text-ink-2">Units</span>
@@ -270,7 +282,9 @@ export function UnitMap({
               ) : null}
             </>
           ) : (
-            <span>{openUnit ? "Point at or tap a function for details" : "Point at a unit for details; select it to open"}</span>
+            <span>
+              {openUnit ? "Point at a function for details; select it to see its code" : "Point at a unit for details; select it to open"}
+            </span>
           )}
         </div>
       </div>
@@ -287,7 +301,13 @@ export function UnitMap({
             type="button"
             tabIndex={-1}
             onMouseEnter={() => setFocus(t)}
-            onClick={() => (t.unit ? navigate(t.unit.name) : setPinned((p) => (p?.key === t.key ? null : t)))}
+            onClick={() => {
+              if (t.unit) return navigate(t.unit.name);
+              // A function: select it and show its code (again to deselect).
+              const off = pinned?.key === t.key;
+              setPinned(off ? null : t);
+              setSource(off || !openUnit ? null : { unit: openUnit, fn: t.label });
+            }}
             aria-label={`${t.label}: ${t.detail}`}
             className="absolute transition-[filter] duration-100 hover:brightness-125"
             style={{
@@ -345,6 +365,20 @@ export function UnitMap({
           {openUnit ? " · Esc to go back" : ""}
         </span>
       </div>
+      {source && openUnit ? (
+        <SourcePanel
+          owner={owner}
+          repo={repo}
+          version={version}
+          commit={commit}
+          unit={source.unit}
+          fn={source.fn}
+          onClose={() => {
+            setSource(null);
+            setPinned(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
