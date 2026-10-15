@@ -1,0 +1,45 @@
+# Dependencies and package manager
+node_modules/
+.yarn/
+.pnp.*
+yarn.lock
+
+# Build output
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Generated Drizzle migrations (SQL + meta snapshots)
+drizzle/
+
+# Protobuf schemas
+src/report/proto/*.proto
+
+# Binary assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.avif
+*.ico
+*.bmp
+*.svgz
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.eot
+*.pdf
+*.zip
+*.gz
+*.tgz
+*.br
+*.zst
+*.bin
+*.wasm
+*.pb
