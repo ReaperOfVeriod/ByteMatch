@@ -22,6 +22,8 @@ interface FunctionRow {
   size: number;
   fuzzy_match_percent: number;
   address: number | null;
+  /** Has functional C (not matched), and the project's confidence in it. */
+  functional?: string | null;
 }
 
 /** What a tile stands for: a unit at the top level, a function inside a unit. */
@@ -173,7 +175,7 @@ export function UnitMap({
           matched: f.fuzzy_match_percent >= 100 ? 100 : 0,
           fuzzy: f.fuzzy_match_percent,
           address: f.address ?? 0,
-          detail: `${f.address !== null ? `0x${f.address.toString(16).toUpperCase().padStart(8, "0")} · ` : ""}${bytes(f.size)} · ${f.fuzzy_match_percent >= 100 ? "matched" : `${f.fuzzy_match_percent.toFixed(1)}% match`}`,
+          detail: `${f.address !== null ? `0x${f.address.toString(16).toUpperCase().padStart(8, "0")} · ` : ""}${bytes(f.size)} · ${f.fuzzy_match_percent >= 100 ? "matched" : `${f.fuzzy_match_percent.toFixed(1)}% match`}${f.functional ? ` · functional C (${f.functional} confidence)` : ""}`,
         }));
     }
     return units

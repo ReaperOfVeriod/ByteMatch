@@ -14,7 +14,7 @@ import { chosenTheme } from "@/lib/theme-server";
 import { canManage, currentSession } from "@/auth/session";
 import { projectProblem, type ProjectProblem } from "@/lib/project-problems";
 import { ProblemPanel } from "./problem-panel";
-import { NotFound, repoUrl, resolve } from "@/lib/project-data";
+import { NotFound, functionalJson, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
 import { ExternalImage } from "./external-image";
@@ -135,7 +135,10 @@ function ProgressSection({
   fuzzy,
   tone = "code",
   tall = false,
+  functional = null,
 }: {
+  /** Functional C under the bar (code only), when the project lists it. */
+  functional?: Functional | null;
   /** Code is green; data is blue, so the two sections read apart at a glance. */
   tone?: "code" | "data";
   /** The Directory layout's taller, square bar. */
@@ -227,6 +230,52 @@ function ProgressSection({
             {tip(layer)}
           </span>
         ))}
+      </div>
+      {functional && functional.functions > 0 ? <FunctionalLine functional={functional} matched={matched} /> : null}
+    </div>
+  );
+}
+
+type Functional = NonNullable<ReturnType<typeof functionalJson>>;
+
+/**
+ * Functional C, on its own line under the Code bar and never inside it: code the project has C
+ * for that does what the original does without matching its bytes. The faint part is the matched
+ * code it continues from, so together they show how much of the game has C at all.
+ */
+function FunctionalLine({ functional: f, matched }: { functional: Functional; matched: number }) {
+  const covered = Math.min(100, matched + f.code_percent);
+  const conf = f.by_confidence
+    ? (["high", "medium", "low", "unrated"] as const)
+        .filter((c) => f.by_confidence![c].functions > 0)
+        .map((c) => `${fmtInt.format(f.by_confidence![c].functions)} ${c}`)
+    : [];
+  const summary = `Functional C: ${f.code_percent.toFixed(2)}% of code, ${fmtInt.format(f.functions)} functions. Not counted as matched; with matched code, ${covered.toFixed(2)}% of the code has C.`;
+  return (
+    <div className="mt-3">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+        <span className="text-ink-2">
+          Functional C <span className="text-ink-3">· port only, not counted as matched</span>
+        </span>
+        <span className="font-mono text-ink-3">
+          {f.code_percent.toFixed(2)}% of code · {fmtInt.format(f.functions)} functions
+        </span>
+      </div>
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-track" role="img" aria-label={summary} title={summary}>
+        <span
+          className="h-full"
+          style={{ width: `${Math.min(100, matched)}%`, background: "color-mix(in srgb, var(--done) 30%, var(--track))" }}
+        />
+        <span
+          className="h-full"
+          style={{
+            width: `${Math.max(0, covered - Math.min(100, matched))}%`,
+            background: "repeating-linear-gradient(135deg, var(--functional) 0 4px, transparent 4px 7px)",
+          }}
+        />
+      </div>
+      <div className="mt-1 text-xs text-ink-3">
+        With matched code, {covered.toFixed(2)}% of the code has C{conf.length ? ` · confidence: ${conf.join(", ")}` : ""}.
       </div>
     </div>
   );
@@ -410,6 +459,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                   linked={m.complete_code_percent}
                   matched={m.matched_code_percent}
                   fuzzy={m.fuzzy_match_percent}
+                  functional={functionalJson(r)}
                 />
                 {m.total_data > 0 ? (
                   <ProgressSection

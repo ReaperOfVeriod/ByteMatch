@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { canManage, currentSession } from "@/auth/session";
-import { findProject, projectVersions } from "@/db/store";
+import { findProject, latestReport, projectVersions } from "@/db/store";
+import { isSummary } from "@/report/functional";
 import { loadGames } from "@/lib/game-data";
 import { resolveKey } from "@/lib/games";
 import { NameField, type NameOption } from "../../name-field";
@@ -54,6 +55,9 @@ export default async function ManageProject({ params, searchParams }: Params) {
     loadGames(),
     searchParams,
   ]);
+  const shownVersion = project.defaultVersion ?? versions[0]?.version;
+  const latest = shownVersion ? await latestReport(project.id, shownVersion) : undefined;
+  const functional = latest?.functional ?? null;
   const gameOptions: NameOption[] = names.games.map((g) => ({ title: g.title, key: g.key, projectIds: g.projects.map((p) => p.id) }));
   const franchiseOptions: NameOption[] = names.franchises.map((f) => ({
     title: f.title,
@@ -137,6 +141,25 @@ export default async function ManageProject({ params, searchParams }: Params) {
             </>
           ) : null}
         </p>
+        {functional ? (
+          <p className={`mt-3 text-xs ${isSummary(functional) ? "text-ink-2" : "text-bad"}`}>
+            {isSummary(functional) ? (
+              <>
+                Functional list ({shownVersion}): {functional.functions} function{functional.functions === 1 ? "" : "s"} shown as functional
+                C, {functional.code_percent.toFixed(2)}% of code.
+                {functional.already_matched
+                  ? ` ${functional.already_matched} listed function${functional.already_matched === 1 ? " is" : "s are"} already matched and can come off the list.`
+                  : ""}
+                {functional.not_found ? ` ${functional.not_found} aren't in this version's report.` : ""}{" "}
+                <Link href="/docs/getting-started#7-functional-c-optional" className="text-accent hover:underline">
+                  About functional C
+                </Link>
+              </>
+            ) : (
+              <>The functional list in the latest report couldn&apos;t be read: {functional.error}</>
+            )}
+          </p>
+        ) : null}
       </Card>
 
       <Card title="History">

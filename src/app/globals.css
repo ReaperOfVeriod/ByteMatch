@@ -41,6 +41,8 @@
   --done-deep: color-mix(in srgb, var(--done) 82%, black);
   --series-1-deep: color-mix(in srgb, var(--series-1) 80%, black);
   --seam: color-mix(in srgb, var(--bg) 75%, transparent);
+  /* Functional C's hatching: a neutral, since it isn't progress. */
+  --functional: color-mix(in srgb, var(--text-3) 85%, var(--surface));
   /* The header mark: the brand's matched green and in-progress blue; tinted themes, below. */
   --logo: var(--done);
   --logo-part: var(--partial);
