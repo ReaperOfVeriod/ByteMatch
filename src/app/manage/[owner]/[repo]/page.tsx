@@ -138,6 +138,15 @@ export default async function ManageProject({ params, searchParams }: Params) {
               <input name="defaultCategory" defaultValue={project.defaultCategory ?? ""} className={inputClass} />
             </Field>
           </div>
+          <Field label="Discord invite" hint="optional, shown on the project page">
+            <input
+              name="discordUrl"
+              defaultValue={project.discordUrl ?? ""}
+              placeholder="https://discord.gg/…"
+              className={inputClass}
+              inputMode="url"
+            />
+          </Field>
           <Field label="Description" hint="optional">
             <input name="description" defaultValue={project.description ?? ""} className={inputClass} />
           </Field>

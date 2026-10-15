@@ -9,11 +9,12 @@ import { JsonLd } from "./json-ld";
 import { config } from "@/lib/config";
 import { platformName } from "@/lib/platforms";
 import { publicError } from "@/lib/errors";
+import { hiddenFromPublic } from "@/lib/visibility";
 import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
 import { ExternalImage } from "./external-image";
-import { ChevronRight, GitHubMark } from "./ui/icons";
+import { Chat, ChevronRight, GitHubMark } from "./ui/icons";
 import { VersionSelect } from "./version-select";
 import { HistoryChart, type HistoryPoint } from "./history-chart";
 import { ProgressBar } from "./progress-bar";
@@ -131,7 +132,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
     if (!(e instanceof NotFound)) throw e;
     // A registered project whose first reports have not arrived yet: say so instead of 404.
     const pending = version || commit ? undefined : await findProject(owner, repo);
-    if (!pending?.enabled) notFound();
+    if (!pending || hiddenFromPublic(pending, false)) notFound();
     return <Syncing project={pending} />;
   }
   const { project, measures: m, row } = r;
@@ -203,7 +204,13 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
         ) : (
           <span className="font-mono text-xs text-ink-2">{r.version}</span>
         )}
-        <a href={repoUrl(project)} className="btn btn-ghost ml-auto h-9 px-3 text-sm">
+        {project.discordUrl ? (
+          <a href={project.discordUrl} rel="noopener noreferrer" target="_blank" className="btn btn-ghost ml-auto h-9 px-3 text-sm">
+            <Chat size={14} />
+            Discord
+          </a>
+        ) : null}
+        <a href={repoUrl(project)} className={`btn btn-ghost h-9 px-3 text-sm ${project.discordUrl ? "" : "ml-auto"}`}>
           <GitHubMark size={14} />
           Repository
         </a>

@@ -11,6 +11,7 @@ import { userClient } from "@/github/client";
 import { config } from "@/lib/config";
 import { enqueue, JOBS } from "@/lib/queue";
 import { checkImageUrl } from "@/lib/images";
+import { checkDiscordUrl } from "@/lib/links";
 import { createToken, revokeToken } from "@/lib/tokens";
 
 export interface FormState {
@@ -91,9 +92,12 @@ export async function updateProject(owner: string, repo: string, _: FormState, f
   } catch {
     return { error: "The artifact pattern is not a valid regular expression." };
   }
+  const discord = checkDiscordUrl(String(form.get("discordUrl") ?? ""));
+  if ("error" in discord) return { error: discord.error };
   await db()
     .update(projects)
     .set({
+      discordUrl: discord.url,
       name: text(form, "name") ?? project.repo,
       shortName: text(form, "shortName"),
       description: text(form, "description"),

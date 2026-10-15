@@ -15,6 +15,13 @@
       "when": 1792031718719,
       "tag": "0001_project_image_url",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792033803415,
+      "tag": "0002_project_discord",
+      "breakpoints": true
     }
   ]
 }

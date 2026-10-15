@@ -78,6 +78,8 @@ export const projects = pgTable(
     lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
     /** An https link to the project's banner image, hosted elsewhere (ByteMatch never stores images). */
     imageUrl: text("image_url"),
+    /** The project's Discord invite (discord.gg / discord.com/invite), shown on its page. */
+    discordUrl: text("discord_url"),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: created(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

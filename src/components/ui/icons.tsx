@@ -59,6 +59,12 @@ export const ArrowRight = (p: IconProps) => (
   </Svg>
 );
 
+export const Chat = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 4.5A1.5 1.5 0 014.5 3h7A1.5 1.5 0 0113 4.5v5A1.5 1.5 0 0111.5 11H7l-3 2.5V11h0A1 1 0 013 10V4.5z" />
+  </Svg>
+);
+
 export const Plus = (p: IconProps) => (
   <Svg {...p}>
     <path d="M8 3v10M3 8h10" />
