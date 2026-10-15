@@ -24,11 +24,10 @@ export default async function DocPage({ params }: Params) {
   if (!doc) notFound();
   const index = DOCS.findIndex((d) => d.slug === slug);
   const next = DOCS[index + 1] ? await loadDoc(DOCS[index + 1].slug) : null;
-  const toc = doc.headings.filter((h) => h.depth === 2);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1fr)_13rem]">
-      <article className="panel min-w-0 px-6 py-8 sm:px-10">
+    <div className="grid grid-cols-[minmax(0,1fr)]">
+      <article className="panel min-w-0 px-6 py-8 sm:px-10 lg:px-12">
         <JsonLd data={docsJsonLd(doc.slug, { title: doc.title, description: doc.summary })} />
         <div className="text-xs font-medium text-ink-3">{doc.group}</div>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance">{doc.title}</h1>
@@ -48,23 +47,6 @@ export default async function DocPage({ params }: Params) {
           </Link>
         ) : null}
       </article>
-      {toc.length > 1 ? (
-        <aside className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
-          <div className="mb-2 text-xs font-medium text-ink-3">On this page</div>
-          <ul className="grid gap-1 border-l border-line text-sm">
-            {toc.map((h) => (
-              <li key={h.id}>
-                <a
-                  href={`#${h.id}`}
-                  className="-ml-px block border-l border-transparent py-0.5 pl-3 text-ink-2 hover:border-ink-3 hover:text-ink"
-                >
-                  {h.text}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      ) : null}
     </div>
   );
 }
