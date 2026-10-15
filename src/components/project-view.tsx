@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Project } from "@/db/schema";
-import type { Measures } from "@/report/types";
 import { findProject, hasImportedHistory, history, latestFullReport, loadReport } from "@/db/store";
 import { projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
@@ -91,34 +90,55 @@ function Syncing({ project }: { project: Project }) {
 }
 
 /** The code bar: fully linked (solid), matched (striped), and the rest of the fuzzy match (faint stripes). */
-function CodeBar({ m }: { m: Measures }) {
-  const linked = Math.min(100, m.complete_code_percent);
-  const matched = Math.max(0, Math.min(100, m.matched_code_percent) - linked);
-  const fuzzy = Math.max(0, Math.min(100, m.fuzzy_match_percent) - linked - matched);
+/**
+ * One progress section (Code or Data): fully linked (solid), matched (striped) and, for code, the
+ * rest of the fuzzy match (faint stripes). Data has no fuzzy figure in objdiff reports.
+ */
+function ProgressSection({
+  label,
+  total,
+  linked,
+  matched,
+  fuzzy,
+}: {
+  label: string;
+  total: number;
+  linked: number;
+  matched: number;
+  fuzzy?: number;
+}) {
+  const l = Math.min(100, linked);
+  const mt = Math.max(0, Math.min(100, matched) - l);
+  const fz = fuzzy === undefined ? 0 : Math.max(0, Math.min(100, fuzzy) - l - mt);
   const stripes = (a: string, b: string) => `repeating-linear-gradient(135deg, ${a} 0 7px, ${b} 7px 14px)`;
+  const done = stripes("var(--done)", "#25863d");
+  const faint = stripes("#3b4a63", "#2c3850");
   return (
     <div>
+      <div className="mb-2 text-sm text-ink-2">
+        {label} <span className="text-ink-3">({formatBytes(total)})</span>
+      </div>
       <div
         className="flex h-4 w-full overflow-hidden rounded-full bg-track"
         role="img"
-        aria-label={`${m.complete_code_percent.toFixed(2)}% fully linked, ${m.matched_code_percent.toFixed(2)}% matched, ${m.fuzzy_match_percent.toFixed(2)}% fuzzy match`}
+        aria-label={`${label}: ${linked.toFixed(2)}% fully linked, ${matched.toFixed(2)}% matched${fuzzy === undefined ? "" : `, ${fuzzy.toFixed(2)}% fuzzy match`}`}
       >
-        <div className="h-full bg-done" style={{ width: `${linked}%` }} />
-        <div className="h-full" style={{ width: `${matched}%`, background: stripes("var(--done)", "#25863d") }} />
-        <div className="h-full" style={{ width: `${fuzzy}%`, background: stripes("#3b4a63", "#2c3850") }} />
+        <div className="h-full bg-done" style={{ width: `${l}%` }} />
+        <div className="h-full" style={{ width: `${mt}%`, background: done }} />
+        {fuzzy === undefined ? null : <div className="h-full" style={{ width: `${fz}%`, background: faint }} />}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm bg-done" /> Fully linked {m.complete_code_percent.toFixed(2)}%
+          <span className="size-2.5 rounded-sm bg-done" /> Fully linked {linked.toFixed(2)}%
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: stripes("var(--done)", "#25863d") }} /> Matched{" "}
-          {m.matched_code_percent.toFixed(2)}%
+          <span className="size-2.5 rounded-sm" style={{ background: done }} /> Matched {matched.toFixed(2)}%
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: stripes("#3b4a63", "#2c3850") }} /> Fuzzy{" "}
-          {m.fuzzy_match_percent.toFixed(2)}%
-        </span>
+        {fuzzy === undefined ? null : (
+          <span className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: faint }} /> Fuzzy {fuzzy.toFixed(2)}%
+          </span>
+        )}
       </div>
     </div>
   );
@@ -236,11 +256,17 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
                 {project.platform ? <span className="font-normal"> · {platformName(project.platform)}</span> : null}
               </p>
 
-              <div className="mt-6">
-                <div className="mb-2 text-sm text-ink-2">
-                  Code <span className="text-ink-3">({formatBytes(m.total_code)})</span>
-                </div>
-                <CodeBar m={m} />
+              <div className="mt-6 grid gap-5">
+                <ProgressSection
+                  label="Code"
+                  total={m.total_code}
+                  linked={m.complete_code_percent}
+                  matched={m.matched_code_percent}
+                  fuzzy={m.fuzzy_match_percent}
+                />
+                {m.total_data > 0 ? (
+                  <ProgressSection label="Data" total={m.total_data} linked={m.complete_data_percent} matched={m.matched_data_percent} />
+                ) : null}
               </div>
 
               <div className="mt-6 border-t border-line pt-5">
