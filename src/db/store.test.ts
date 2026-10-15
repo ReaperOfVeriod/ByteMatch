@@ -92,4 +92,32 @@ describe.skipIf(!TEST_DB)("store", () => {
     expect(h).toHaveLength(2);
     expect(await loadReport((await latestReport(p.id, "v"))!)).not.toBeNull();
   });
+
+  it("keeps projects whose repositories are gone, or that never synced, off the public list", async () => {
+    const { db } = await import("./client");
+    const { projects } = await import("./schema");
+    const { eq } = await import("drizzle-orm");
+    const live = await makeProject();
+    const gone = await makeProject({ owner: "x", repo: "deleted", name: "Deleted", githubId: 2 });
+    const flaky = await makeProject({ owner: "x", repo: "flaky", name: "Flaky", githubId: 3 });
+    await makeProject({ owner: "x", repo: "fresh", name: "Fresh", githubId: 4 });
+    const broken = await makeProject({ owner: "x", repo: "broken", name: "Broken", githubId: 5 });
+    for (const p of [live, gone, flaky]) {
+      await storeReport({
+        project: p,
+        version: "v",
+        commit: { sha: `s${p.id}`, timestamp: new Date() },
+        report: report(),
+        source: "upload",
+      });
+    }
+    const setError = (id: number, lastError: string) => db().update(projects).set({ lastError }).where(eq(projects.id, id));
+    await setError(gone.id, "Not Found - https://docs.github.com/rest/actions");
+    await setError(flaky.id, "API rate limit exceeded for user [id]");
+    await setError(broken.id, "no GitHub access to x/broken");
+    expect((await projectIndex()).map((r) => r.repo).sort()).toEqual(["flaky", "fresh", "rac1-decomp"]);
+    // Missing access on ByteMatch's side keeps a project with history visible.
+    await setError(flaky.id, "no GitHub access to x/flaky");
+    expect((await projectIndex()).map((r) => r.repo)).toContain("flaky");
+  });
 });
