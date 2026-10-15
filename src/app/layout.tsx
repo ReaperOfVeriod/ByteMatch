@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentSession } from "@/auth/session";
 import { JsonLd } from "@/components/json-ld";
+import { MobileMenu } from "@/components/mobile-menu";
 import { Chat } from "@/components/ui/icons";
 import { siteJsonLd, siteMetadata } from "@/lib/seo";
 import { config } from "@/lib/config";
@@ -42,23 +43,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Mark />
               {name}
             </Link>
-            <Link href="/" className={`${navLink} hidden sm:block`}>
-              Projects
-            </Link>
-            <Link href="/docs" className={navLink}>
-              Docs
-            </Link>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="hidden items-center gap-1 md:flex">
+              <Link href="/" className={navLink}>
+                Projects
+              </Link>
+              <Link href="/docs" className={navLink}>
+                Docs
+              </Link>
+            </div>
+            <div className="ml-auto hidden items-center gap-1 md:flex">
               {discord ? (
-                <a
-                  href={discord}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${navLink} flex items-center gap-1.5`}
-                  aria-label={`${name} Discord`}
-                >
+                <a href={discord} target="_blank" rel="noopener noreferrer" className={`${navLink} flex items-center gap-1.5`}>
                   <Chat size={15} />
-                  <span className="hidden md:inline">Discord</span>
+                  Discord
                 </a>
               ) : null}
               {session ? (
@@ -66,7 +63,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/manage" className={navLink}>
                     Manage
                   </Link>
-                  <span className="mx-1 hidden items-center gap-2 text-sm text-ink-3 md:flex">
+                  {session.admin ? (
+                    <Link href="/admin" className={navLink}>
+                      Admin
+                    </Link>
+                  ) : null}
+                  <span className="mx-1 hidden items-center gap-2 text-sm text-ink-3 lg:flex">
                     {session.user.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- a 20px avatar from GitHub
                       <img src={`${session.user.avatarUrl}&s=40`} alt="" width={20} height={20} className="rounded-full" />
@@ -79,7 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </>
               ) : (
                 <>
-                  <Link href="/manage/new" className={`${navLink} hidden sm:block`}>
+                  <Link href="/manage/new" className={navLink}>
                     Submit a project
                   </Link>
                   <Link href="/login" className="btn btn-ghost ml-1 h-8 px-3">
@@ -87,6 +89,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </Link>
                 </>
               )}
+            </div>
+            <div className="ml-auto flex items-center gap-2 md:hidden">
+              {session ? null : (
+                <Link href="/login" className="btn btn-ghost h-9 px-3">
+                  Sign in
+                </Link>
+              )}
+              <MobileMenu
+                user={session?.user.login ?? null}
+                signOut={!!session}
+                links={[
+                  { href: "/", label: "Projects" },
+                  { href: "/docs", label: "Docs" },
+                  { href: "/manage/new", label: "Submit a project" },
+                  ...(session ? [{ href: "/manage", label: "Manage" }] : []),
+                  ...(session?.admin ? [{ href: "/admin", label: "Admin" }] : []),
+                  ...(discord ? [{ href: discord, label: "Discord", external: true }] : []),
+                ]}
+              />
             </div>
           </nav>
         </header>

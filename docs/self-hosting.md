@@ -165,6 +165,22 @@ macOS's AirPlay Receiver listens on port 5000, so `yarn dev` and `yarn start` fa
 `EADDRINUSE`. Turn off AirPlay Receiver (System Settings → General → AirDrop & Handoff), or run the
 dev server on another port: `yarn next dev -p 5050` (and set `PUBLIC_URL` to match).
 
+## Administering an instance
+
+Accounts listed in `ADMIN_GITHUB_LOGINS` see **Admin** in the header (`/admin`; everyone else gets a
+404 there). It has:
+
+| Tab       | What it does                                                                                                                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview  | Whether the worker is alive (it writes a heartbeat every minute), queued and failed jobs, how much of `GITHUB_TOKEN`'s hourly GitHub allowance is left, and which GitHub App settings are present.          |
+| Projects  | Every project with its status (healthy, syncing, erroring, hidden, disabled), submitter and last error. Re-sync, disable, remove a linked image or Discord invite, or delete a project outright.            |
+| Jobs      | Each queue's counts, and failed jobs with their (scrubbed) error: retry or discard them.                                                                                                                    |
+| Users     | Everyone who has signed in, and the blocklist. Blocking works by GitHub username even before someone signs in; it signs them out, stops them signing in or submitting, and can take their projects offline. |
+| Audit log | Every admin action: who, what, when, and the reason given.                                                                                                                                                  |
+| Settings  | Open or close project submissions (overriding `OPEN_REGISTRATION`), and pause all syncing during maintenance; queued work resumes when you switch it back on.                                               |
+
+Deleting a project removes it and everything stored for it. Disabling hides it but keeps its history.
+
 ## Upgrades
 
 pm2:
