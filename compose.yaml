@@ -1,0 +1,55 @@
+# Local development and small self-hosted installs:
+#   docker compose up -d db                         # just Postgres, for `yarn dev` + `yarn worker:dev`
+#   docker compose --profile app up -d --build      # Postgres, migrations, web (port 5000) and worker
+# Settings come from .env (copy .env.example).
+name: bytematch
+
+services:
+  db:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: bytematch
+      POSTGRES_PASSWORD: bytematch
+      POSTGRES_DB: bytematch
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bytematch"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., dockerfile: Containerfile }
+    command: ["node", "dist/migrate.js"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      DATABASE_URL: postgres://bytematch:bytematch@db:5432/bytematch
+    depends_on:
+      db: { condition: service_healthy }
+    profiles: [app]
+
+  web:
+    build: { context: ., dockerfile: Containerfile }
+    env_file: [{ path: .env, required: false }]
+    environment:
+      DATABASE_URL: postgres://bytematch:bytematch@db:5432/bytematch
+    ports:
+      - "0.0.0.0:5000:5000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    profiles: [app]
+
+  worker:
+    build: { context: ., dockerfile: Containerfile }
+    command: ["node", "dist/main.js"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      DATABASE_URL: postgres://bytematch:bytematch@db:5432/bytematch
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    profiles: [app]
+
+volumes:
+  db:
