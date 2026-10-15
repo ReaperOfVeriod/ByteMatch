@@ -1,6 +1,7 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import { and, asc, desc, eq, sql as dsql } from "drizzle-orm";
 import { sha256 } from "../lib/crypto";
+import { ACCESS_ERROR_PATTERN } from "../lib/visibility";
 import { encodeReport, parseReport } from "../report/parse";
 import type { Measures, Report } from "../report/types";
 import { db } from "./client";
@@ -226,6 +227,7 @@ export async function projectIndex() {
       limit 1
     ) b on true
     where p.enabled
+      and (p.last_error is null or (r.version is not null and p.last_error !~* ${ACCESS_ERROR_PATTERN}))
     order by lower(p.name)`);
   return [...rows];
 }

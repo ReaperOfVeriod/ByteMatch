@@ -113,8 +113,11 @@ export async function pollProject(project: Project, maxRuns = 20): Promise<RunRe
     if (r.stored.length) seen.add(run.headSha);
     results.push(r);
   }
+  // Reaching the repository at all means the last error no longer applies (and a hidden project shows again).
   await remember(project, {
     lastPolledAt: new Date(),
+    lastError: null,
+    lastErrorAt: null,
     ...(installationId && installationId !== project.installationId ? { installationId } : {}),
   });
   return results;

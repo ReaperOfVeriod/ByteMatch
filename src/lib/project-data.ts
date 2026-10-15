@@ -3,6 +3,7 @@ import { defaultVersion, findProject, latestReport, projectVersions, reportAtPre
 import { BADGE_MEASURES } from "../report/measures";
 import { MEASURE_KEYS, type Measures } from "../report/types";
 import { config } from "./config";
+import { hiddenFromPublic } from "./visibility";
 
 /** A project with one version (and maybe one category) picked, as the public endpoints need it. */
 export interface Resolved {
@@ -28,6 +29,7 @@ export async function resolve(
   const project = await findProject(owner, repo);
   if (!project || !project.enabled) throw new NotFound("Project not found");
   const versions = (await projectVersions(project.id)).map((v) => v.version);
+  if (hiddenFromPublic(project, versions.length > 0)) throw new NotFound("Project not found");
   const picked = version || (await defaultVersion(project));
   if (!picked || !versions.includes(picked)) throw new NotFound(version ? `Version ${version} not found` : "No reports yet");
   const row = commit ? await reportAtPrefix(project.id, picked, commit) : await latestReport(project.id, picked);
