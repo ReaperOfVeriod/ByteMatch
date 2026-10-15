@@ -24,6 +24,8 @@ interface DecompDevHistoryEntry {
 }
 
 export interface ImportResult {
+  /** False when decomp.dev never tracked this project: nothing to import, not an error. */
+  found: boolean;
   versions: { version: string; history: number; report: boolean }[];
 }
 
@@ -54,10 +56,16 @@ export function versionNames(project: DecompDevProject): string[] {
 
 export async function importFromDecompDev(project: Project): Promise<ImportResult> {
   const base = `${config().DECOMP_DEV_URL.replace(/\/+$/, "")}/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}`;
-  const info = await getJson<DecompDevProject>(`${base}.json`);
-  const versions = versionNames(info);
-  if (versions.length === 0) throw new Error("decomp.dev has no versions for this project");
-  const result: ImportResult = { versions: [] };
+  const probe = await fetch(`${base}.json`, {
+    headers: { accept: "application/json", "user-agent": "ByteMatch history import" },
+    signal: AbortSignal.timeout(60_000),
+  });
+  // decomp.dev answers 404 for projects it never tracked (and will for all of them once it is gone).
+  if (probe.status === 404) return { found: false, versions: [] };
+  if (!probe.ok) throw new Error(`${base}.json: HTTP ${probe.status}`);
+  const versions = versionNames((await probe.json()) as DecompDevProject);
+  if (versions.length === 0) return { found: false, versions: [] };
+  const result: ImportResult = { found: true, versions: [] };
   for (const version of versions) {
     const q = `version=${encodeURIComponent(version)}`;
     const entries = await getJson<DecompDevHistoryEntry[]>(`${base}.json?mode=history&${q}`);

@@ -62,7 +62,8 @@ export default async function ManageProject({ params, searchParams }: Params) {
       </p>
       {added ? (
         <p className="mt-3 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
-          Added. ByteMatch is looking for its CI artifacts now.
+          Added. ByteMatch is importing its decomp.dev history (if it had any) and reading its CI runs. This takes a minute or two; refresh
+          to see progress.
         </p>
       ) : null}
       {project.lastError ? (

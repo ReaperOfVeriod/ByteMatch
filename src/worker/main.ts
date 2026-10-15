@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Job } from "pg-boss";
 import { closeDb, db } from "../db/client";
-import { projects, type Project } from "../db/schema";
+import { projects, reports, type Project } from "../db/schema";
 import { pruneReports } from "../db/store";
 import { commentOnRun } from "../github/comments";
 import { importFromDecompDev } from "../ingest/decompdev";
@@ -87,9 +87,20 @@ export async function startWorker() {
   await b.work(
     JOBS.pollAll,
     handle(JOBS.pollAll, async () => {
-      const all = await db().select({ id: projects.id }).from(projects).where(eq(projects.enabled, true));
-      for (const p of all) await enqueue(JOBS.pollProject, { projectId: p.id }, `poll:${p.id}`);
-      return { queued: all.length };
+      const all = await db()
+        .select({ id: projects.id, hasReports: sql<boolean>`exists (select 1 from ${reports} r where r.project_id = ${projects.id})` })
+        .from(projects)
+        .where(eq(projects.enabled, true));
+      for (const p of all) {
+        if (p.hasReports) {
+          await enqueue(JOBS.pollProject, { projectId: p.id }, `poll:${p.id}`);
+        } else {
+          // Never synced (or its first sync failed): give it the full first sync again.
+          await enqueue(JOBS.importDecompDev, { projectId: p.id }, `import:${p.id}`);
+          await enqueue(JOBS.backfill, { projectId: p.id, maxRuns: 500 }, `backfill:${p.id}`);
+        }
+      }
+      return { queued: all.length, firstSync: all.filter((p) => !p.hasReports).length };
     }),
   );
   await b.work(

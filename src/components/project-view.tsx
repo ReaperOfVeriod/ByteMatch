@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hasImportedHistory, history, latestFullReport, loadReport } from "@/db/store";
+import type { Project } from "@/db/schema";
+import { findProject, hasImportedHistory, history, latestFullReport, loadReport } from "@/db/store";
 import { projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
 import { config } from "@/lib/config";
@@ -41,13 +42,47 @@ function More({ title, children, aside }: { title: string; children: React.React
   );
 }
 
+const fmtDateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+function Syncing({ project }: { project: Project }) {
+  return (
+    <div className="mx-auto max-w-2xl">
+      <section className="panel p-7">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">{project.name}</h1>
+        <div className="mt-1 text-sm text-ink-3">
+          <a href={repoUrl(project)} className="hover:text-ink">
+            {project.owner}/{project.repo}
+          </a>
+          {project.platform ? ` · ${platformName(project.platform)}` : ""}
+        </div>
+        <p className="mt-6 text-sm leading-relaxed text-ink-2">
+          No progress reports yet. ByteMatch imports the project&apos;s decomp.dev history, if it had one, and reads its CI runs on{" "}
+          <code className="rounded bg-code px-1.5 py-0.5 font-mono text-xs">{project.defaultBranch}</code> for{" "}
+          <code className="rounded bg-code px-1.5 py-0.5 font-mono text-xs">{"<VERSION>_report"}</code> artifacts. This usually takes a
+          minute or two.
+        </p>
+        {project.lastError ? (
+          <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
+            The last attempt failed{project.lastErrorAt ? ` (${fmtDateTime.format(project.lastErrorAt)})` : ""}: {project.lastError}
+          </p>
+        ) : project.lastPolledAt ? (
+          <p className="mt-4 text-sm text-ink-3">Last checked {fmtDateTime.format(project.lastPolledAt)}: no report artifacts found yet.</p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 export async function ProjectView({ owner, repo, version }: { owner: string; repo: string; version?: string }) {
   let r;
   try {
     r = await resolve(owner, repo, version ? decodeURIComponent(version) : undefined, null);
   } catch (e) {
-    if (e instanceof NotFound) notFound();
-    throw e;
+    if (!(e instanceof NotFound)) throw e;
+    // A registered project whose first reports have not arrived yet: say so instead of 404.
+    const pending = version ? undefined : await findProject(owner, repo);
+    if (!pending?.enabled) notFound();
+    return <Syncing project={pending} />;
   }
   const { project, measures: m, row } = r;
   const base = `/${project.owner}/${project.repo}`;

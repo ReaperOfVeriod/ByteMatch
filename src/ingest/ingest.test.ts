@@ -127,11 +127,22 @@ describe.skipIf(!TEST_DB)("ingest", () => {
     });
     try {
       const result = await importFromDecompDev(p);
-      expect(result.versions).toEqual([{ version: "SCES_509.16", history: hist.length, report: true }]);
+      expect(result).toEqual({ found: true, versions: [{ version: "SCES_509.16", history: hist.length, report: true }] });
       const latest = await latestReport(p.id, "SCES_509.16");
       expect(latest?.commitSha).toBe(hist[0].commit_sha);
       expect(latest?.blobId).not.toBeNull();
       expect(await history(p.id, "SCES_509.16")).toHaveLength(hist.length);
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it("treats a project decomp.dev never tracked as nothing to import", async () => {
+    const p = await makeProject();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("Not found", { status: 404 }));
+    try {
+      expect(await importFromDecompDev(p)).toEqual({ found: false, versions: [] });
+      expect(await history(p.id, "SCES_509.16")).toHaveLength(0);
     } finally {
       fetchMock.mockRestore();
     }

@@ -70,7 +70,10 @@ export async function addProject(_: FormState, form: FormData): Promise<FormStat
     .onConflictDoNothing()
     .returning();
   if (!project) return { error: "That repository is already registered." };
-  await enqueue(JOBS.pollProject, { projectId: project.id }, `poll:${project.id}`);
+  // A new project syncs everything at once: history from decomp.dev if it was tracked there, then
+  // every CI run whose artifacts have not expired (which includes the latest one).
+  await enqueue(JOBS.importDecompDev, { projectId: project.id }, `import:${project.id}`);
+  await enqueue(JOBS.backfill, { projectId: project.id, maxRuns: 500 }, `backfill:${project.id}`);
   redirect(`/manage/${project.owner}/${project.repo}?added=1`);
 }
 
