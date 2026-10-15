@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { renderBadge, parseStyle, shieldsEndpoint } from "@/badge/badge";
 import { badgePng } from "@/badge/png";
 import { history, loadReport } from "@/db/store";
-import { BadRequest, badgeText, NotFound, projectJson, resolve } from "@/lib/project-data";
+import { BadRequest, badgeText, isoSeconds, NotFound, orderedMeasures, projectJson, resolve } from "@/lib/project-data";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ owner: 
         case "shield":
           return Response.json(shieldsEndpoint({ ...badgeText(r, q), color: q.get("color") ?? "informational" }), { headers });
         case "measures":
-          return Response.json(r.measures, { headers });
+          return Response.json(orderedMeasures(r.measures), { headers });
         case "history": {
           const rows = await history(r.project.id, r.version);
           const category = r.category?.id;
@@ -45,10 +45,13 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ owner: 
             rows
               .reverse()
               .map((h) => ({
-                timestamp: h.commitTimestamp.toISOString(),
+                timestamp: isoSeconds(h.commitTimestamp),
                 commit_sha: h.commitSha,
                 commit_message: h.commitMessage,
-                measures: category ? (h.categories.find((c) => c.id === category)?.measures ?? null) : h.measures,
+                measures: (() => {
+                  const m = category ? h.categories.find((c) => c.id === category)?.measures : h.measures;
+                  return m ? orderedMeasures(m) : null;
+                })(),
               }))
               .filter((h) => h.measures),
             { headers },

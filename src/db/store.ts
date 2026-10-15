@@ -79,10 +79,24 @@ export async function storeMeasuresOnly(project: Project, version: string, rows:
   return inserted.length;
 }
 
+/** Recently decoded full reports, by blob id (blobs never change, so entries never go stale). */
+const reportCache = new Map<number, Report>();
+const REPORT_CACHE_SIZE = 8;
+
 export async function loadReport(row: Pick<ReportRow, "blobId">): Promise<Report | null> {
   if (!row.blobId) return null;
+  const hit = reportCache.get(row.blobId);
+  if (hit) {
+    reportCache.delete(row.blobId);
+    reportCache.set(row.blobId, hit);
+    return hit;
+  }
   const [blob] = await db().select({ data: reportBlobs.data }).from(reportBlobs).where(eq(reportBlobs.id, row.blobId));
-  return blob ? parseReport(gunzipSync(blob.data)) : null;
+  if (!blob) return null;
+  const report = parseReport(gunzipSync(blob.data));
+  reportCache.set(row.blobId, report);
+  if (reportCache.size > REPORT_CACHE_SIZE) reportCache.delete(reportCache.keys().next().value!);
+  return report;
 }
 
 export async function findProject(owner: string, repo: string): Promise<Project | undefined> {

@@ -1,7 +1,7 @@
 import type { Project, ReportRow } from "../db/schema";
 import { defaultVersion, findProject, latestReport, projectVersions } from "../db/store";
 import { BADGE_MEASURES } from "../report/measures";
-import type { Measures } from "../report/types";
+import { MEASURE_KEYS, type Measures } from "../report/types";
 import { config } from "./config";
 
 /** A project with one version (and maybe one category) picked, as the public endpoints need it. */
@@ -34,6 +34,14 @@ export async function resolve(owner: string, repo: string, version?: string | nu
   return { project, versions, version: picked, row, category: cat, measures: cat?.measures ?? row.measures };
 }
 
+/** Measures in objdiff's field order (Postgres JSONB does not keep key order). */
+export function orderedMeasures(m: Measures): Measures {
+  return Object.fromEntries(MEASURE_KEYS.map((k) => [k, m[k]])) as unknown as Measures;
+}
+
+/** ISO-8601 without milliseconds, as GitHub and decomp.dev write timestamps. */
+export const isoSeconds = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+
 export const repoUrl = (p: Pick<Project, "owner" | "repo">) => `https://github.com/${p.owner}/${p.repo}`;
 export const projectUrl = (p: Pick<Project, "owner" | "repo">, version?: string) =>
   `${config().PUBLIC_URL}/${p.owner}/${p.repo}${version ? `/${encodeURIComponent(version)}` : ""}`;
@@ -51,10 +59,10 @@ export function projectJson(r: Resolved) {
     platform: project.platform,
     default_version: project.defaultVersion ?? r.versions[0] ?? null,
     default_category: project.defaultCategory,
-    commit: { sha: row.commitSha, message: row.commitMessage, timestamp: row.commitTimestamp.toISOString() },
-    measures: r.measures,
+    commit: { sha: row.commitSha, message: row.commitMessage, timestamp: isoSeconds(row.commitTimestamp) },
+    measures: orderedMeasures(r.measures),
     report_versions: r.versions,
-    report_categories: row.categories.map((c) => ({ id: c.id, name: c.name, measures: c.measures })),
+    report_categories: row.categories.map((c) => ({ id: c.id, name: c.name, measures: orderedMeasures(c.measures) })),
   };
 }
 

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import opentype from "opentype.js";
+import * as opentype from "opentype.js";
 
 /**
  * Shields-style badges, drawn here so they need no third-party service. Text is measured with
