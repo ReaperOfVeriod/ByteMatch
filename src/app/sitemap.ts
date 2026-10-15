@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { MetadataRoute } from "next";
 import { projectIndex, projectVersions } from "@/db/store";
 import { config } from "@/lib/config";
+import { loadGames } from "@/lib/game-data";
 import { DOCS } from "@/lib/docs";
 import { DOC_SLUGS, projectPath } from "@/lib/seo";
 
@@ -66,18 +67,51 @@ async function projectEntries(base: string): Promise<Entry[]> {
   }
 }
 
+/** /games/{slug} and /franchises/{slug} for every game and franchise projects name. */
+async function gameEntries(base: string): Promise<Entry[]> {
+  try {
+    const { games, franchises } = await loadGames();
+    const newest = (dates: (string | null)[]) => {
+      const d = dates
+        .filter((x): x is string => !!x)
+        .sort()
+        .at(-1);
+      return d ? { lastModified: new Date(d) } : {};
+    };
+    return [
+      ...games.map((g): Entry => ({
+        url: `${base}/games/${g.slug}`,
+        ...newest(g.projects.map((p) => p.updated)),
+        changeFrequency: "daily",
+        priority: 0.8,
+      })),
+      ...franchises.map((f): Entry => ({
+        url: `${base}/franchises/${f.slug}`,
+        ...newest(f.games.flatMap((g) => g.projects.map((p) => p.updated))),
+        changeFrequency: "weekly",
+        priority: 0.6,
+      })),
+    ];
+  } catch (e) {
+    console.error("sitemap: games unavailable:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = config().PUBLIC_URL;
-  const [docs, projects] = await Promise.all([docsEntries(base), projectEntries(base)]);
+  const [docs, projects, games] = await Promise.all([docsEntries(base), projectEntries(base), gameEntries(base)]);
   const latest = projects.reduce<Date | undefined>(
     (acc, e) => (e.lastModified instanceof Date && (!acc || e.lastModified > acc) ? e.lastModified : acc),
     undefined,
   );
   return [
     { url: `${base}/`, ...(latest ? { lastModified: latest } : {}), changeFrequency: "daily", priority: 1 },
+    { url: `${base}/games`, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/docs`, changeFrequency: "monthly", priority: 0.7 },
     ...docs,
     { url: `${base}/login`, changeFrequency: "yearly", priority: 0.1 },
     ...projects,
+    ...games,
   ];
 }

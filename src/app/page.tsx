@@ -27,6 +27,8 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
     name: p.name,
     platform: p.platform,
     platformName: platformName(p.platform),
+    game: p.game,
+    franchise: p.franchise,
     version: p.version,
     codePercent: p.measures ? Number(p.measures.matched_code_percent) : null,
     functions: p.measures ? { done: Number(p.measures.matched_functions), total: Number(p.measures.total_functions) } : null,

@@ -1,7 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /** First path segments that belong to the site, never to a project owner. */
-const RESERVED = new Set(["api", "auth", "manage", "docs", "_next", "healthz", "favicon.ico", "robots.txt"]);
+const RESERVED = new Set([
+  "api",
+  "auth",
+  "manage",
+  "docs",
+  "games",
+  "franchises",
+  "admin",
+  "_next",
+  "healthz",
+  "favicon.ico",
+  "robots.txt",
+]);
 
 /**
  * decomp.dev-compatible data URLs: /{owner}/{repo}.json|svg|png and /{owner}/{repo}/{version}.json|svg|png

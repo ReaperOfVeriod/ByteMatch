@@ -8,6 +8,8 @@ export interface ProjectRow {
   name: string;
   platform: string | null;
   platformName: string | null;
+  game?: string | null;
+  franchise?: string | null;
   version: string | null;
   codePercent: number | null;
   functions: { done: number; total: number } | null;

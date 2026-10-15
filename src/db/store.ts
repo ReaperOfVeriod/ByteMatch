@@ -190,6 +190,16 @@ export async function history(projectId: number, version: string) {
     .orderBy(asc(reports.commitTimestamp), asc(reports.id));
 }
 
+/** Game and franchise names already in use, offered as suggestions so projects agree on spelling. */
+export async function gameNames(): Promise<{ games: string[]; franchises: string[] }> {
+  const rows = await db()
+    .selectDistinct({ game: projects.game, franchise: projects.franchise })
+    .from(projects)
+    .where(eq(projects.enabled, true));
+  const uniq = (v: (string | null)[]) => [...new Set(v.filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b));
+  return { games: uniq(rows.map((r) => r.game)), franchises: uniq(rows.map((r) => r.franchise)) };
+}
+
 /** Every enabled project with its default version's latest measures, for the index. */
 export async function projectIndex() {
   const rows = await db().execute<{
@@ -199,6 +209,9 @@ export async function projectIndex() {
     name: string;
     short_name: string | null;
     platform: string | null;
+    game: string | null;
+    franchise: string | null;
+    release_year: number | null;
     version: string | null;
     measures: Measures | null;
     commit_timestamp: string | null;
@@ -208,7 +221,7 @@ export async function projectIndex() {
     /** Matched-code percentage points gained over the last 30 days (since the first report if newer). */
     gain_30d: number | null;
   }>(dsql`
-    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.image_url, p.icon_url, p.created_at,
+    select p.id, p.owner, p.repo, p.name, p.short_name, p.platform, p.game, p.franchise, p.release_year, p.image_url, p.icon_url, p.created_at,
            r.version, r.measures, r.commit_timestamp,
            (r.measures->>'matched_code_percent')::float8 - (b.measures->>'matched_code_percent')::float8 as gain_30d
     from ${projects} p

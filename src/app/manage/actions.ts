@@ -9,6 +9,7 @@ import { projects, type Project } from "@/db/schema";
 import { findProject } from "@/db/store";
 import { userClient } from "@/github/client";
 import { enqueue, JOBS } from "@/lib/queue";
+import { cleanName, cleanYear } from "@/lib/games";
 import { checkImageUrl } from "@/lib/images";
 import { registrationOpen } from "@/lib/settings";
 import { checkDiscordUrl } from "@/lib/links";
@@ -92,6 +93,7 @@ export async function updateProject(owner: string, repo: string, _: FormState, f
   } catch {
     return { error: "The artifact pattern is not a valid regular expression." };
   }
+  if (text(form, "releaseYear") && !cleanYear(text(form, "releaseYear"))) return { error: "The release year should look like 2002." };
   const discord = checkDiscordUrl(String(form.get("discordUrl") ?? ""));
   if ("error" in discord) return { error: discord.error };
   await db()
@@ -102,6 +104,9 @@ export async function updateProject(owner: string, repo: string, _: FormState, f
       shortName: text(form, "shortName"),
       description: text(form, "description"),
       platform: text(form, "platform"),
+      game: cleanName(text(form, "game")),
+      franchise: cleanName(text(form, "franchise")),
+      releaseYear: cleanYear(text(form, "releaseYear")),
       defaultVersion: text(form, "defaultVersion"),
       defaultCategory: text(form, "defaultCategory"),
       defaultBranch: text(form, "defaultBranch") ?? project.defaultBranch,

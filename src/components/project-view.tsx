@@ -6,6 +6,7 @@ import { findProject, hasImportedHistory, history, latestFullReport, loadReport 
 import { projectJsonLd, projectSeoInput } from "@/lib/seo";
 import { JsonLd } from "./json-ld";
 import { config } from "@/lib/config";
+import { slugify } from "@/lib/games";
 import { platformName } from "@/lib/platforms";
 import { publicError } from "@/lib/errors";
 import { hiddenFromPublic } from "@/lib/visibility";
@@ -271,6 +272,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
   const previous = new Map(rows.map((h, i) => [h.commitSha, rows[i - 1]?.measures]));
   const site = config().PUBLIC_URL;
   const versionPath = version ? `/${encodeURIComponent(r.version)}` : "";
+  const gameSlug = project.game ? slugify(project.game) : "";
   const navBtn = "btn btn-ghost h-9 flex-1 px-3 text-sm";
   const navOff = "btn h-9 flex-1 cursor-not-allowed border border-line px-3 text-sm text-ink-3 opacity-50";
 
@@ -279,9 +281,15 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
       <JsonLd data={projectJsonLd(projectSeoInput(r, { versionInUrl: !!version, importedFromDecompDev: imported }))} />
 
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
-        <Link href="/" className="text-ink-3 hover:text-ink">
-          Projects
-        </Link>
+        {gameSlug ? (
+          <Link href={`/games/${gameSlug}`} className="max-w-[40vw] truncate text-ink-3 hover:text-ink">
+            {project.game}
+          </Link>
+        ) : (
+          <Link href="/" className="text-ink-3 hover:text-ink">
+            Projects
+          </Link>
+        )}
         <ChevronRight size={12} className="text-ink-3" />
         <Link href={base} className="max-w-[60vw] truncate font-medium text-ink hover:underline">
           {project.name}

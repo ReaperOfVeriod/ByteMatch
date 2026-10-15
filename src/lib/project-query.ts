@@ -29,6 +29,9 @@ export interface Listable {
   repo: string;
   name: string;
   platform: string | null;
+  /** The game and franchise the project names; search matches them too. */
+  game?: string | null;
+  franchise?: string | null;
   codePercent: number | null;
   updated: string | null;
   matchedFunctions?: number | null;
@@ -57,11 +60,12 @@ export function parseListParams(source: ParamSource): ListParams {
   };
 }
 
-/** Every search word must appear in the name or owner/repo, in any order and case. */
+/** Every search word must appear in the name, owner/repo, game or franchise, in any order and case. */
 export function matches(row: Listable, q: string): boolean {
-  const hay = `${row.name} ${row.owner}/${row.repo}`.toLowerCase();
+  const hay = `${row.name} ${row.owner}/${row.repo} ${row.game ?? ""} ${row.franchise ?? ""}`.toLowerCase().replace(/&/g, "and");
   return q
     .toLowerCase()
+    .replace(/&/g, "and")
     .split(/\s+/)
     .filter(Boolean)
     .every((w) => hay.includes(w));

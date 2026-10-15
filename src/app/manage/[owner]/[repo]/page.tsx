@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { canManage, currentSession } from "@/auth/session";
-import { findProject, projectVersions } from "@/db/store";
+import { findProject, gameNames, projectVersions } from "@/db/store";
 import { config } from "@/lib/config";
 import { redact } from "@/lib/errors";
 import { PLATFORMS } from "@/lib/platforms";
@@ -44,7 +44,12 @@ export default async function ManageProject({ params, searchParams }: Params) {
   if (!session) redirect(`/login?next=/manage/${owner}/${repo}`);
   const project = await findProject(owner, repo);
   if (!project || !(await canManage(session, project))) notFound();
-  const [versions, tokens, { added }] = await Promise.all([projectVersions(project.id), listTokens(project.id), searchParams]);
+  const [versions, tokens, names, { added }] = await Promise.all([
+    projectVersions(project.id),
+    listTokens(project.id),
+    gameNames(),
+    searchParams,
+  ]);
   const site = config().PUBLIC_URL;
   const slug = config().GITHUB_APP_SLUG;
   const bound = (fn: typeof updateProject) => fn.bind(null, project.owner, project.repo);
@@ -137,6 +142,47 @@ export default async function ManageProject({ params, searchParams }: Params) {
             <Field label="Default category" hint="optional category id for badges">
               <input name="defaultCategory" defaultValue={project.defaultCategory ?? ""} className={inputClass} />
             </Field>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem]">
+            <Field label="Game" hint="groups projects on one game page">
+              <input
+                name="game"
+                defaultValue={project.game ?? ""}
+                list="game-names"
+                placeholder="Ratchet & Clank"
+                className={inputClass}
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Franchise" hint="optional">
+              <input
+                name="franchise"
+                defaultValue={project.franchise ?? ""}
+                list="franchise-names"
+                placeholder="Ratchet & Clank"
+                className={inputClass}
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Year" hint="release">
+              <input
+                name="releaseYear"
+                defaultValue={project.releaseYear ?? ""}
+                inputMode="numeric"
+                placeholder="2002"
+                className={inputClass}
+              />
+            </Field>
+            <datalist id="game-names">
+              {names.games.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+            <datalist id="franchise-names">
+              {names.franchises.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
           </div>
           <Field label="Discord invite" hint="optional, shown on the project page">
             <input

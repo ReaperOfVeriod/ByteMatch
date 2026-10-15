@@ -318,6 +318,18 @@ export function docsPageMetadata(slug: string, fallback: { title?: string; descr
   };
 }
 
+/** For the browse pages (games, franchises, activity): a title, a description and a canonical path. */
+export function browseMetadata(title: string, description: string, path: string): Metadata {
+  const fullTitle = `${title} · ${siteName()}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: openGraph({ title: fullTitle, description, path }),
+    twitter: twitter({ title: fullTitle, description }),
+  };
+}
+
 /** For /login. Indexable but low priority; no description of private state. */
 export function loginMetadata(): Metadata {
   const title = "Sign in";
