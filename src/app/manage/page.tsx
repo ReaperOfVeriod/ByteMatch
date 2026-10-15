@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { explain, problemCode } from "@/lib/problems";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentSession } from "@/auth/session";
@@ -32,7 +33,7 @@ export default async function Manage() {
                 {p.owner}/{p.repo}
               </span>
               {!p.enabled ? <span className="text-xs text-ink-3">disabled</span> : null}
-              {p.lastError ? <span className="ml-auto text-xs text-bad">last ingest failed</span> : null}
+              {p.lastError ? <span className="ml-auto text-xs text-bad">{explain(problemCode(p.lastError)).title}</span> : null}
             </Link>
           </li>
         ))}

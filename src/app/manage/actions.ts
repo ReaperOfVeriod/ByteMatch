@@ -9,6 +9,7 @@ import { projects, type Project } from "@/db/schema";
 import { findProject } from "@/db/store";
 import { userClient } from "@/github/client";
 import { enqueue, JOBS } from "@/lib/queue";
+import { clearProblems } from "@/ingest/github";
 import { cleanName, cleanYear } from "@/lib/games";
 import { checkImageUrl } from "@/lib/images";
 import { registrationOpen } from "@/lib/settings";
@@ -119,6 +120,13 @@ export async function updateProject(owner: string, repo: string, _: FormState, f
       updatedAt: new Date(),
     })
     .where(eq(projects.id, project.id));
+  // A different pattern or workflow may pick other artifacts from runs that were skipped.
+  const repicks = pattern !== project.artifactPattern || text(form, "workflow") !== project.workflow;
+  if (repicks && (await clearProblems(project.id))) {
+    await enqueue(JOBS.backfill, { projectId: project.id, maxRuns: 500 }, `backfill:${project.id}`);
+    revalidatePath(`/manage/${owner}/${repo}`);
+    return { message: "Saved. Runs skipped earlier will be read again with the new setting." };
+  }
   revalidatePath(`/manage/${owner}/${repo}`);
   return { message: "Saved." };
 }
@@ -135,6 +143,14 @@ export async function runAction(owner: string, repo: string, _: FormState, form:
     case "import":
       await enqueue(JOBS.importDecompDev, { projectId: project.id }, `import:${project.id}`);
       return { message: "Queued: importing history from decomp.dev." };
+    case "retry-skipped": {
+      const n = await clearProblems(project.id);
+      await enqueue(JOBS.backfill, { projectId: project.id, maxRuns: 500 }, `backfill:${project.id}`);
+      revalidatePath(`/manage/${owner}/${repo}`);
+      return {
+        message: `Queued: reading ${n === 1 ? "the skipped run" : `the ${n} skipped runs`} again, with any other runs not yet read.`,
+      };
+    }
     default:
       return { error: "Unknown action." };
   }

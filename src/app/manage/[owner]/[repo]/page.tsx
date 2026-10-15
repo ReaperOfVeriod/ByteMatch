@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { canManage, currentSession } from "@/auth/session";
 import { findProject, gameNames, projectVersions } from "@/db/store";
 import { config } from "@/lib/config";
-import { redact } from "@/lib/errors";
+import { projectProblem, skippedRuns } from "@/lib/project-problems";
+import { ProblemPanel } from "@/components/problem-panel";
 import { PLATFORMS } from "@/lib/platforms";
 import { listTokens } from "@/lib/tokens";
 import { deleteToken, newToken, runAction, setImageUrl, updateProject, uploadHistory } from "../../actions";
@@ -43,6 +44,7 @@ export default async function ManageProject({ params, searchParams }: Params) {
   if (!session) redirect(`/login?next=/manage/${owner}/${repo}`);
   const project = await findProject(owner, repo);
   if (!project || !(await canManage(session, project))) notFound();
+  const [problem, skipped] = await Promise.all([projectProblem(project), skippedRuns(project.id)]);
   const [versions, tokens, names, { added }] = await Promise.all([
     projectVersions(project.id),
     listTokens(project.id),
@@ -77,16 +79,17 @@ export default async function ManageProject({ params, searchParams }: Params) {
           to see progress.
         </p>
       ) : null}
-      {project.lastError ? (
-        <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">
-          Last ingest failed
-          {project.lastErrorAt ? (
-            <>
-              {" ("}
-              <LocalTime value={project.lastErrorAt} />)
-            </>
-          ) : null}
-          : {redact(project.lastError)}
+      {problem ? (
+        <div className="mt-5">
+          <ProblemPanel problem={problem} />
+        </div>
+      ) : null}
+      {skipped ? (
+        <p className="mt-4 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-ink-2">
+          {skipped === 1 ? "1 CI run is" : `${skipped} CI runs are`} skipped because {skipped === 1 ? "its artifact" : "their artifacts"}{" "}
+          had no usable report. ByteMatch doesn&apos;t retry them on its own, since a finished run never changes; once the workflow is
+          fixed, new runs are read normally. To read these again (after changing the artifact pattern, say), use{" "}
+          <span className="font-medium">Try skipped runs again</span> under Data.
         </p>
       ) : null}
 
@@ -101,6 +104,15 @@ export default async function ManageProject({ params, searchParams }: Params) {
               hint: "Read older CI runs whose artifacts have not expired (GitHub keeps them about 90 days)",
             },
             { value: "import", label: "Import from decomp.dev", hint: "Copy this project's history and latest report from decomp.dev" },
+            ...(skipped
+              ? [
+                  {
+                    value: "retry-skipped",
+                    label: "Try skipped runs again",
+                    hint: "Forget which runs had no usable report and read them again",
+                  },
+                ]
+              : []),
           ]}
         />
         <p className="mt-3 text-xs text-ink-3">

@@ -11,6 +11,9 @@ import { platformName } from "@/lib/platforms";
 import { publicError } from "@/lib/errors";
 import { hiddenFromPublic } from "@/lib/visibility";
 import { chosenTheme } from "@/lib/theme-server";
+import { canManage, currentSession } from "@/auth/session";
+import { projectProblem, type ProjectProblem } from "@/lib/project-problems";
+import { ProblemPanel } from "./problem-panel";
 import { NotFound, repoUrl, resolve } from "@/lib/project-data";
 import { formatBytes } from "@/report/measures";
 import { CopyField } from "./copy-field";
@@ -62,7 +65,15 @@ function More({ title, children, aside }: { title: string; children: React.React
   );
 }
 
-function Syncing({ project }: { project: Project }) {
+/** The project's sync problem, explained, if the viewer maintains it; the public get a one-line summary. */
+async function maintainerProblem(project: Project): Promise<ProjectProblem | null> {
+  if (!project.lastError) return null;
+  const session = await currentSession().catch(() => null);
+  if (!session || !(await canManage(session, project))) return null;
+  return projectProblem(project);
+}
+
+function Syncing({ project, problem }: { project: Project; problem: ProjectProblem | null }) {
   return (
     <div className="mx-auto max-w-2xl">
       <section className="panel p-7">
@@ -79,7 +90,11 @@ function Syncing({ project }: { project: Project }) {
           <code className="rounded bg-code px-1.5 py-0.5 font-mono text-xs">{"<VERSION>_report"}</code> artifacts. This usually takes a
           minute or two.
         </p>
-        {project.lastError ? (
+        {problem ? (
+          <div className="mt-4">
+            <ProblemPanel problem={problem} manageHref={`/manage/${project.owner}/${project.repo}`} />
+          </div>
+        ) : project.lastError ? (
           <p className="mt-4 rounded-xl border border-bad/40 bg-bad/5 px-4 py-3 text-sm text-bad">{publicError(project.lastError)}</p>
         ) : project.lastPolledAt ? (
           <p className="mt-4 text-sm text-ink-3">
@@ -225,8 +240,11 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
     if (!(e instanceof NotFound)) throw e;
     // A registered project whose first reports have not arrived yet: say so instead of 404.
     const pending = version || commit ? undefined : await findProject(owner, repo);
-    if (!pending || hiddenFromPublic(pending, false)) notFound();
-    return <Syncing project={pending} />;
+    if (!pending) notFound();
+    // Hidden from the public, but its maintainers still need to see why.
+    const problem = await maintainerProblem(pending);
+    if (!problem && hiddenFromPublic(pending, false)) notFound();
+    return <Syncing project={pending} problem={problem} />;
   }
   const { project, measures: m, row } = r;
   const base = `/${project.owner}/${project.repo}`;
@@ -280,6 +298,7 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
   const navBtn = "btn btn-ghost h-9 flex-1 px-3 text-sm";
   const navOff = "btn h-9 flex-1 cursor-not-allowed border border-line px-3 text-sm text-ink-3 opacity-50";
   const directory = (await chosenTheme()).style.layout === "directory";
+  const problem = await maintainerProblem(project);
 
   return (
     <div className="report-page grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -316,6 +335,8 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
           Repository
         </a>
       </nav>
+
+      {problem ? <ProblemPanel problem={problem} manageHref={`/manage/${project.owner}/${project.repo}`} /> : null}
 
       <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 ${directory ? "" : "xl:grid-cols-[minmax(0,1fr)_23rem]"}`}>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
