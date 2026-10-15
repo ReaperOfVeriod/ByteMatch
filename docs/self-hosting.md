@@ -96,19 +96,71 @@ docker run -d --env-file .env bytematch node dist/main.js   # worker
 
 ## Reverse proxy
 
-Put a reverse proxy with TLS in front of port 5000. A Caddyfile:
+Put a reverse proxy with TLS in front of port 5000, and set `PUBLIC_URL` to the public address
+(e.g. `https://bytematch.dev`): links, badges, sign-in and PR comments are built from it.
+
+The server listens on `0.0.0.0:5000`, so it is also reachable directly on port 5000. Block that port
+in the firewall (e.g. `ufw deny 5000`) so all traffic goes through the proxy, or bind the app to
+loopback by changing `-H 0.0.0.0` to `-H 127.0.0.1` in `ecosystem.config.cjs`.
+
+### nginx
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name bytematch.dev www.bytematch.dev;
+    return 301 https://bytematch.dev$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name bytematch.dev www.bytematch.dev;
+
+    ssl_certificate     /etc/letsencrypt/live/bytematch.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bytematch.dev/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # One canonical host, so sign-in cookies and links agree.
+    if ($host = www.bytematch.dev) { return 301 https://bytematch.dev$request_uri; }
+
+    # Report uploads (POST /api/v1/projects/.../reports) can be large; match MAX_REPORT_BYTES.
+    client_max_body_size 256m;
+
+    location / {
+        # 127.0.0.1, not localhost: localhost may resolve to ::1, where the server is not listening.
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+### Caddy
 
 ```caddyfile
 <host> {
+	request_body {
+		max_size 256MB
+	}
 	reverse_proxy 127.0.0.1:5000
 }
 ```
 
-Caddy obtains the certificate itself. With several web instances, list them all:
-`reverse_proxy 127.0.0.1:5000 127.0.0.1:5001`.
+Caddy obtains the certificate itself. With several web hosts, list them all:
+`reverse_proxy 10.0.0.2:5000 10.0.0.3:5000`.
 
-Uploads can be large (up to `MAX_REPORT_BYTES`); if your proxy limits request body size, raise the
-limit for `/api/v1/projects/*`.
+### Port 5000 on macOS
+
+macOS's AirPlay Receiver listens on port 5000, so `yarn dev` and `yarn start` fail there with
+`EADDRINUSE`. Turn off AirPlay Receiver (System Settings → General → AirDrop & Handoff), or run the
+dev server on another port: `yarn next dev -p 5050` (and set `PUBLIC_URL` to match).
 
 ## Upgrades
 

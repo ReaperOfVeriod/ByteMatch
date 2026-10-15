@@ -1,6 +1,6 @@
 # API reference
 
-All public URLs are compatible with decomp.dev's. `<host>` stands for the instance's domain;
+All public URLs are compatible with decomp.dev's. The examples use the public instance, `bytematch.dev`;
 `{owner}` and `{repo}` are the GitHub owner and repository name.
 
 | URL                                            | Returns                             |
@@ -39,7 +39,7 @@ Query parameters:
 ### Default: the project object
 
 ```sh
-curl https://<host>/OpenRAC/rac1-decomp.json
+curl https://bytematch.dev/OpenRAC/rac1-decomp.json
 ```
 
 ```json
@@ -88,7 +88,7 @@ The values above are illustrative. `measures` always contains the 16 objdiff mea
 A [shields.io endpoint](https://shields.io/badges/endpoint-badge) response.
 
 ```sh
-curl "https://<host>/OpenRAC/rac1-decomp.json?mode=shield&label=Code&measure=matched_code_percent"
+curl "https://bytematch.dev/OpenRAC/rac1-decomp.json?mode=shield&label=Code&measure=matched_code_percent"
 ```
 
 ```json
@@ -162,9 +162,9 @@ as `flat`).
 Examples:
 
 ```markdown
-![Code](https://<host>/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)
-![Functions](https://<host>/OpenRAC/rac1-decomp.svg?label=Functions&measure=matched_functions&style=for-the-badge)
-![Game](https://<host>/OpenRAC/rac1-decomp.png?category=game&measure=matched_code_percent&color=brightgreen)
+![Code](https://bytematch.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)
+![Functions](https://bytematch.dev/OpenRAC/rac1-decomp.svg?label=Functions&measure=matched_functions&style=for-the-badge)
+![Game](https://bytematch.dev/OpenRAC/rac1-decomp.png?category=game&measure=matched_code_percent&color=brightgreen)
 ```
 
 ## Project list
@@ -203,7 +203,7 @@ default) are rejected.
 **Response.** JSON listing the versions stored and the project page:
 
 ```json
-{ "stored": ["GALE01"], "url": "https://<host>/<owner>/<repo>" }
+{ "stored": ["GALE01"], "url": "https://bytematch.dev/<owner>/<repo>" }
 ```
 
 For a split-versions project, `stored` lists every version found in the report.
@@ -214,7 +214,7 @@ For a split-versions project, `stored` lists every version found in the report.
 curl --fail -X POST \
   -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
   --data-binary @build/GALE01/report.json \
-  "https://<host>/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
+  "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
 ```
 
 Compressed:
@@ -224,7 +224,7 @@ gzip -c build/GALE01/report.json | curl --fail -X POST \
   -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
   -H "Content-Encoding: gzip" \
   --data-binary @- \
-  "https://<host>/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
+  "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
 ```
 
 ### GitHub Actions step
@@ -240,7 +240,7 @@ Store the token as a repository secret named `BYTEMATCH_TOKEN`:
     curl --fail -X POST \
       -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
       --data-binary @build/GALE01/report.json \
-      "https://<host>/api/v1/projects/${{ github.repository }}/reports?version=GALE01&commit=$GITHUB_SHA"
+      "https://bytematch.dev/api/v1/projects/${{ github.repository }}/reports?version=GALE01&commit=$GITHUB_SHA"
 ```
 
 To record the commit message, URL-encode it into the query string, for example with `jq`:
@@ -250,7 +250,7 @@ MSG=$(printf %s "$(git log -1 --format=%s)" | jq -sRr @uri)
 curl --fail -X POST \
   -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
   --data-binary @build/GALE01/report.json \
-  "https://<host>/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA&commit_message=$MSG"
+  "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA&commit_message=$MSG"
 ```
 
 ## Health check

@@ -4,7 +4,8 @@ decomp.dev is being sunset. Registration of new projects is closed, and it keeps
 project pages and data for now. ByteMatch is compatible with decomp.dev's public URLs, so moving a
 project is mostly a change of domain.
 
-`<host>` stands for the ByteMatch instance's domain.
+The public ByteMatch instance is [bytematch.dev](https://bytematch.dev). On a self-hosted instance, use
+its domain instead.
 
 ## Summary
 
@@ -12,13 +13,13 @@ project is mostly a change of domain.
 | ------------------- | ------------------------------------------------------------------------------------------ |
 | 1. Register         | Sign in on ByteMatch and add the repository.                                               |
 | 2. CI               | Nothing, if CI already uploads `<VERSION>_report` artifacts.                               |
-| 3. Badges and links | Replace `decomp.dev` with `<host>`. Paths and query parameters stay the same.              |
+| 3. Badges and links | Replace `decomp.dev` with `bytematch.dev`. Paths and query parameters stay the same.       |
 | 4. History          | Run **Import from decomp.dev** on the manage page while decomp.dev still serves your data. |
 | 5. Tools            | Anything reading `decomp.dev/<owner>/<repo>.json` changes the host.                        |
 
 ## 1. Register the project
 
-Sign in with GitHub on `https://<host>`, then **Manage** → **Add project**. You must be an admin of
+Sign in with GitHub on `https://bytematch.dev`, then **Manage** → **Add project**. You must be an admin of
 the GitHub repository, or a site admin of the instance (listed in its `ADMIN_GITHUB_LOGINS`).
 
 Instance operators can set `OPEN_REGISTRATION=false` to make adding projects admin-only. If you
@@ -50,7 +51,7 @@ Before:
 After:
 
 ```markdown
-[![Code](https://<host>/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://<host>/OpenRAC/rac1-decomp)
+[![Code](https://bytematch.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://bytematch.dev/OpenRAC/rac1-decomp)
 ```
 
 Badges using shields.io's endpoint mode change the same way.
@@ -64,7 +65,7 @@ Before:
 After:
 
 ```markdown
-![Progress](https://img.shields.io/endpoint?url=https%3A%2F%2F<host>%2FOpenRAC%2Frac1-decomp.json%3Fmode%3Dshield)
+![Progress](https://img.shields.io/endpoint?url=https%3A%2F%2Fbytematch.dev%2FOpenRAC%2Frac1-decomp.json%3Fmode%3Dshield)
 ```
 
 ByteMatch draws `.svg` and `.png` badges itself, so the direct badge URL is the simpler choice.
@@ -75,7 +76,7 @@ All badge styles decomp.dev accepted still work, including spellings like `FlatS
 A quick way to update a README:
 
 ```sh
-sed -i 's#https://decomp.dev/#https://<host>/#g' README.md
+sed -i 's#https://decomp.dev/#https://bytematch.dev/#g' README.md
 ```
 
 ## 4. Keep your history
@@ -95,5 +96,5 @@ for recent commits.
 ## 5. Tools and dashboards
 
 Anything that reads `https://decomp.dev/<owner>/<repo>.json` (dashboards, websites, bots) only needs
-the host changed to `https://<host>/<owner>/<repo>.json`. The fields and the `version`, `category`
+the host changed to `https://bytematch.dev/<owner>/<repo>.json`. The fields and the `version`, `category`
 and `mode` parameters are the same. See the [API reference](api.md).

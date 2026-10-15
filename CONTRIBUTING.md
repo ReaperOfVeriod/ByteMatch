@@ -3,6 +3,11 @@
 Thanks for helping with ByteMatch. This page covers the development setup and the rules for
 changes.
 
+## Branches
+
+All work lands on `master`, the only long-lived branch. Open pull requests against `master`; there is
+no `main`.
+
 ## The clean-room rule
 
 ByteMatch is a clean-room implementation. **Never copy code from decomp.dev**, and do not port it

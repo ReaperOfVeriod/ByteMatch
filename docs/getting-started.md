@@ -1,20 +1,21 @@
 # Getting started
 
 This guide is for maintainers of decompilation projects who want their progress tracked on a
-ByteMatch instance. `<host>` stands for the instance's domain.
+ByteMatch instance. The public instance is [bytematch.dev](https://bytematch.dev); on a self-hosted
+instance, use its domain instead.
 
 Moving from decomp.dev? Read [Migrating from decomp.dev](migrating-from-decomp-dev.md) instead; it
 covers the same steps plus keeping your history.
 
 ## 1. Register the project
 
-1. Open `https://<host>`, choose **Sign in with GitHub**.
+1. Open `https://bytematch.dev`, choose **Sign in with GitHub**.
 2. Go to **Manage** → **Add project** and pick the repository.
 
 You must be an admin of the GitHub repository, or a site admin of the instance. Some instances
 turn off open registration; then only site admins can add projects, so ask the operator.
 
-After registering, the project page is at `https://<host>/<owner>/<repo>`. It fills in once the
+After registering, the project page is at `https://bytematch.dev/<owner>/<repo>`. It fills in once the
 first report arrives.
 
 ## 2. Get reports to ByteMatch
@@ -61,12 +62,12 @@ not appear, installing the App is the most reliable fix.
 
 Set these on the project's manage page if your CI differs from the default:
 
-| Setting          | Default                   | Use                                                                                                                                                                    |
-| ---------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Artifact pattern | `^(?<version>.+)_report$` | Regular expression for artifact names. The named group `version` is the game version.                                                                                  |
-| Workflow         | all workflows             | Only read artifacts from this workflow file, e.g. `build.yml`.                                                                                                         |
-| Split versions   | off                       | Your single report holds every version as top-level categories (objdiff's `version` / `version.category` convention). ByteMatch splits it into one report per version. |
-| Default branch   | `main`                    | The branch whose runs count as progress.                                                                                                                               |
+| Setting          | Default                         | Use                                                                                                                                                                    |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Artifact pattern | `^(?<version>.+)_report$`       | Regular expression for artifact names. The named group `version` is the game version.                                                                                  |
+| Workflow         | all workflows                   | Only read artifacts from this workflow file, e.g. `build.yml`.                                                                                                         |
+| Split versions   | off                             | Your single report holds every version as top-level categories (objdiff's `version` / `version.category` convention). ByteMatch splits it into one report per version. |
+| Default branch   | the repository's default branch | Read from GitHub when the project is added; runs on this branch count as progress. Change it if progress is built on another branch.                                   |
 
 ### GitHub App
 
@@ -83,7 +84,7 @@ then:
 curl --fail -X POST \
   -H "Authorization: Bearer $BYTEMATCH_TOKEN" \
   --data-binary @build/GALE01/report.json \
-  "https://<host>/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
+  "https://bytematch.dev/api/v1/projects/<owner>/<repo>/reports?version=GALE01&commit=$GITHUB_SHA"
 ```
 
 Full details are in the [API reference](api.md#upload-api).
@@ -93,9 +94,9 @@ Full details are in the [API reference](api.md#upload-api).
 Add badges to your README. `measure` picks what to show:
 
 ```markdown
-![Code](https://<host>/<owner>/<repo>.svg?label=Code&measure=matched_code_percent)
-![Data](https://<host>/<owner>/<repo>.svg?label=Data&measure=matched_data_percent)
-![Functions](https://<host>/<owner>/<repo>.svg?label=Functions&measure=matched_functions)
+![Code](https://bytematch.dev/<owner>/<repo>.svg?label=Code&measure=matched_code_percent)
+![Data](https://bytematch.dev/<owner>/<repo>.svg?label=Data&measure=matched_data_percent)
+![Functions](https://bytematch.dev/<owner>/<repo>.svg?label=Functions&measure=matched_functions)
 ```
 
 Percent measures read like `86.02%`; `matched_functions` and `complete_units` read like
