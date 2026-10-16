@@ -183,15 +183,22 @@ function ProgressSection({
         ]),
   ];
 
-  const tip = (layer: Layer) => (
-    <span
-      role="tooltip"
-      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-72 -translate-x-1/2 rounded-lg border border-line-strong bg-surface-2 px-2.5 py-1.5 text-xs text-ink opacity-0 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)] transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
-    >
-      <span className="font-medium">{layer.label}</span>
-      <span className="block font-mono text-ink-2">{layer.detail}</span>
-    </span>
-  );
+  // Centred over its layer, except near the bar's ends, where it lines up with that end instead so
+  // it never runs off the panel or the screen. Above everything else on the page.
+  const tip = (layer: Layer, inLegend = false) => {
+    const mid = layer.from + layer.width / 2;
+    // Legend entries sit at the left, so their labels always start at the entry.
+    const place = inLegend || mid < 20 ? "left-0" : mid > 80 ? "right-0" : "left-1/2 -translate-x-1/2";
+    return (
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-full ${place} z-50 mb-2 w-max max-w-72 rounded-lg border border-line-strong bg-surface-2 px-2.5 py-1.5 text-xs text-ink opacity-0 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)] transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100`}
+      >
+        <span className="font-medium">{layer.label}</span>
+        <span className="block font-mono text-ink-2">{layer.detail}</span>
+      </span>
+    );
+  };
 
   return (
     <div>
@@ -227,7 +234,7 @@ function ProgressSection({
           <span key={layer.key} className="group relative flex cursor-default items-center gap-1.5">
             <span className="size-2.5 rounded-sm" style={{ background: layer.background }} />
             {layer.label} {layer.key === "linked" ? linked.toFixed(2) : layer.key === "matched" ? matched.toFixed(2) : fuzzy?.toFixed(2)}%
-            {tip(layer)}
+            {tip(layer, true)}
           </span>
         ))}
       </div>
@@ -400,9 +407,13 @@ export async function ProjectView({ owner, repo, version, commit }: { owner: str
 
       <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 ${directory ? "" : "xl:grid-cols-[minmax(0,1fr)_23rem]"}`}>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
-          <section className={`panel overflow-hidden ${directory ? "report-summary" : ""}`}>
+          {/* Not overflow-hidden: the bar's hover labels must be able to rise above the panel. */}
+          <section className={`panel ${directory ? "report-summary" : ""}`}>
             {project.imageUrl ? (
-              <ExternalImage src={project.imageUrl} className="aspect-[3/1] max-h-56 w-full border-b border-line object-cover" />
+              <ExternalImage
+                src={project.imageUrl}
+                className="aspect-[3/1] max-h-56 w-full rounded-t-[calc(var(--radius-panel)-1px)] border-b border-line object-cover"
+              />
             ) : null}
             <div className="p-6 sm:p-7">
               {directory ? (
